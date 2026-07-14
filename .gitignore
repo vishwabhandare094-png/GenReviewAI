@@ -36,3 +36,7 @@ qr_codes/
 # Temporary files
 *.tmp
 *.temp
+# Frontend (Next.js)
+node_modules/
+.next/
+.eslintcache
