@@ -9,11 +9,23 @@ from app.ai.router import router as ai_router
 from app.dashboard.router import router as dashboard_router
 from app.rag.router import router as rag_router
 from app.analytics.router import router as analytics_router
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="GenReviewAI API",
     version="1.0.0",
     description="AI Powered Review Management System"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
