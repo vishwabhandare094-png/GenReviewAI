@@ -5,7 +5,7 @@ load_dotenv()
 
 class Settings:
     SUPABASE_URL = os.getenv("SUPABASE_URL")
-    SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
     MODEL_NAME = os.getenv("MODEL_NAME")

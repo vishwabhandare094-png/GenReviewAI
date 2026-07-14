@@ -16,7 +16,7 @@ psycopg2-binary==2.9.12
 numpy==2.2.6
 scikit-learn==1.7.2
 joblib==1.5.3
-tensorflow==2.21.0
+tensorflow-cpu==2.21.0
 
 google-genai==2.11.0
 
@@ -24,3 +24,5 @@ qrcode==8.2
 pillow==12.3.0
 
 pandas==2.3.3
+gunicorn==23.0.0
+
