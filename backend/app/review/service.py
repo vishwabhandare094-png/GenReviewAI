@@ -3,7 +3,10 @@ from app.ml.predictor import predict_sentiment
 
 
 def _notify_owner(restaurant_id: str, customer_name: str, rating: int, text: str, sentiment: str, is_private: bool = False):
-    """Fire-and-forget email notification to restaurant owner."""
+    """Fire-and-forget email notification to restaurant owner only if rating is under threshold (4.0)."""
+    if rating >= 4:
+        print(f"[Review] Rating {rating} is at or above threshold. Skipping email notification to owner.")
+        return
     try:
         from app.email.service import send_new_review_notification
         send_new_review_notification(restaurant_id, customer_name, rating, text, sentiment, is_private)

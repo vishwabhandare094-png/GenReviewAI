@@ -14,7 +14,8 @@ def generate_qr(restaurant_id: str):
 
     short_code = str(uuid.uuid4())[:8].upper()
 
-    review_url = f"http://localhost:3000/r/{short_code}/"
+    frontend_url = os.environ.get("CORS_ORIGINS", "https://genreviewai-frontend.onrender.com").split(",")[0].strip()
+    review_url = f"{frontend_url}/r/{short_code}/"
 
     img = qrcode.make(review_url)
 
