@@ -79,7 +79,8 @@ def get_dashboard_data(restaurant_id: str):
             "rating": r.get("rating"),
             "review_text": r.get("review_text"),
             "sentiment": r.get("sentiment"),
-            "is_private": r.get("is_private")
+            "is_private": r.get("is_private"),
+            "created_at": r.get("created_at")
         }
         for r in combined[:5]
     ]

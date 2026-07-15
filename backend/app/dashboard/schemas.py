@@ -15,6 +15,8 @@ class RecentReview(BaseModel):
     rating: int
     review_text: Optional[str] = None
     sentiment: Optional[str] = None
+    is_private: Optional[bool] = False
+    created_at: Optional[str] = None
 
 
 class DashboardResponse(BaseModel):

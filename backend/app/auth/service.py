@@ -4,7 +4,6 @@ from app.schemas.auth import LoginRequest
 
 
 def register_user(data):
-
     existing = (
         supabase.table("users")
         .select("*")
@@ -20,23 +19,16 @@ def register_user(data):
 
     hashed_password = hash_password(data.password)
 
-    # Fetch a default organization and role from the database
-    orgs_res = supabase.table("organizations").select("id").limit(1).execute()
-    roles_res = supabase.table("roles").select("id").eq("name", "business_owner").execute()
-    
-    org_id = orgs_res.data[0]["id"] if orgs_res.data else "00000000-0000-0000-0000-000000000000"
-    role_id = roles_res.data[0]["id"] if roles_res.data else "a2f06723-49c7-4851-a429-7c4a99a3d5ad"
-
     result = (
         supabase.table("users")
         .insert(
             {
-                "name": data.full_name,
+                "full_name": data.full_name,
                 "email": data.email,
-                "hashed_password": hashed_password,
-                "org_id": org_id,
-                "role_id": role_id,
-                "is_active": True
+                "password_hash": hashed_password,
+                "phone": getattr(data, "phone", ""),
+                "role": "owner",
+                "is_verified": True
             }
         )
         .execute()
@@ -50,7 +42,6 @@ def register_user(data):
 
 
 def login_user(data: LoginRequest):
-
     result = (
         supabase.table("users")
         .select("*")
@@ -66,27 +57,23 @@ def login_user(data: LoginRequest):
 
     user = result.data[0]
 
-    if not verify_password(data.password, user["hashed_password"]):
+    # The column is called password_hash now
+    if not verify_password(data.password, user["password_hash"]):
         return {
             "success": False,
             "message": "Invalid email or password"
         }
 
-    # Look up the restaurant linked to this user's org
+    # Look up the restaurant linked to this user
     restaurant_id = None
     restaurant_name = None
     restaurant_short_code = None
     try:
-        org_id = user.get("org_id")
-        if org_id:
-            biz_res = supabase.table("businesses").select("id").eq("org_id", org_id).limit(1).execute()
-            if biz_res.data:
-                business_id = biz_res.data[0]["id"]
-                rest_res = supabase.table("restaurants").select("id, name, short_code").eq("business_id", business_id).eq("status", "active").limit(1).execute()
-                if rest_res.data:
-                    restaurant_id = rest_res.data[0]["id"]
-                    restaurant_name = rest_res.data[0].get("name")
-                    restaurant_short_code = rest_res.data[0].get("short_code")
+        rest_res = supabase.table("restaurants").select("id, restaurant_name, short_code").eq("owner_id", user["id"]).limit(1).execute()
+        if rest_res.data:
+            restaurant_id = rest_res.data[0]["id"]
+            restaurant_name = rest_res.data[0].get("restaurant_name")
+            restaurant_short_code = rest_res.data[0].get("short_code")
     except Exception as e:
         print(f"[Auth] Could not look up restaurant: {e}")
 
@@ -95,11 +82,11 @@ def login_user(data: LoginRequest):
         "message": "Login successful",
         "user": {
             "id": user["id"],
-            "full_name": user["name"],
+            "full_name": user["full_name"],
             "email": user["email"],
             "phone": user.get("phone", ""),
             "restaurant_id": restaurant_id,
             "restaurant_name": restaurant_name,
             "restaurant_short_code": restaurant_short_code,
         }
-    }
+    }

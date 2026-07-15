@@ -6,27 +6,24 @@ resend.api_key = os.environ.get("RESEND_API_KEY", "")
 
 
 def get_owner_email_for_restaurant(restaurant_id: str) -> str | None:
-    """Look up the owner's email for a given restaurant via business -> org -> users."""
+    """Look up the owner's email for a given restaurant directly via owner_id."""
     try:
-        # Get the business_id from the restaurant
-        res = supabase.table("restaurants").select("business_id, name").eq("id", restaurant_id).single().execute()
+        # Get the owner_id from the restaurant
+        res = supabase.table("restaurants").select("owner_id, restaurant_name").eq("id", restaurant_id).single().execute()
         if not res.data:
             return None, None
-        business_id = res.data.get("business_id")
-        restaurant_name = res.data.get("name", "Your Restaurant")
+        owner_id = res.data.get("owner_id")
+        restaurant_name = res.data.get("restaurant_name", "Your Restaurant")
 
-        # Get the org_id from the business
-        biz_res = supabase.table("businesses").select("org_id").eq("id", business_id).single().execute()
-        if not biz_res.data:
+        if not owner_id:
             return None, restaurant_name
-        org_id = biz_res.data.get("org_id")
 
-        # Get owner email from users in that org
-        user_res = supabase.table("users").select("email, name").eq("org_id", org_id).execute()
+        # Get owner email from users
+        user_res = supabase.table("users").select("email").eq("id", owner_id).single().execute()
         if not user_res.data:
             return None, restaurant_name
 
-        return user_res.data[0]["email"], restaurant_name
+        return user_res.data.get("email"), restaurant_name
     except Exception as e:
         print(f"[Email] Error looking up owner email: {e}")
         return None, None
@@ -91,7 +88,7 @@ def send_new_review_notification(
         """
 
         params = {
-            "from": "GenReviewAI <notifications@genreviewai.com>",
+            "from": "GenReviewAI <onboarding@resend.dev>",
             "to": [owner_email],
             "subject": f"New {review_type}: {stars} from {customer_name or 'Anonymous'} at {restaurant_name}",
             "html": html_body,

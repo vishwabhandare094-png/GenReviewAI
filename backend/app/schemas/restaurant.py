@@ -4,7 +4,7 @@ from pydantic import BaseModel
 class RestaurantCreate(BaseModel):
     owner_id: str
     restaurant_name: str
-    brand_name: str
+    brand_name: str | None = None
     category: str
     phone: str
     email: str

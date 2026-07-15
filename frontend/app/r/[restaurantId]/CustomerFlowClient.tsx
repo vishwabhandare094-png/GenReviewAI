@@ -55,6 +55,11 @@ export default function CustomerFlowClient() {
   const [step, setStep] = useState<Step>("rating");
   const [rating, setRating] = useState(0);
   const [customerName, setCustomerName] = useState("");
+  const [dateStr, setDateStr] = useState("");
+
+  useEffect(() => {
+    setDateStr(new Date().toLocaleDateString());
+  }, []);
 
   const [availableTags, setAvailableTags] = useState<string[]>(FALLBACK_TAGS);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -209,7 +214,7 @@ export default function CustomerFlowClient() {
         <TicketCard className="animate-print-in">
           <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-ink-faint">
             <span>Ticket #{orderRef}</span>
-            <span>{new Date().toLocaleDateString()}</span>
+            <span>{dateStr}</span>
           </div>
 
           <div className="my-5">
