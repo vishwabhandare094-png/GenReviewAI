@@ -38,6 +38,7 @@ if extra_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex="https://.*\\.onrender\\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
