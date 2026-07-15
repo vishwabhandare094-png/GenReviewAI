@@ -1,5 +1,5 @@
 import uuid
-from app.database.supabase import supabase
+from app.database.supabase import supabase, resolve_restaurant_id
 
 
 def create_restaurant(data):
@@ -38,6 +38,8 @@ def create_restaurant(data):
     }
 
 def get_google_review_url(restaurant_id: str):
+
+    restaurant_id = resolve_restaurant_id(restaurant_id)
 
     result = (
         supabase

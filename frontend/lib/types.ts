@@ -29,6 +29,7 @@ export interface RecentReview {
   rating: number;
   review_text?: string;
   sentiment?: Sentiment;
+  is_private?: boolean;
 }
 
 export interface DashboardResponse {

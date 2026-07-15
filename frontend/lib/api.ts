@@ -30,7 +30,15 @@ async function request<T>(
     let detail = res.statusText;
     try {
       const body = await res.json();
-      detail = body?.detail ? JSON.stringify(body.detail) : detail;
+      if (body && body.detail) {
+        if (Array.isArray(body.detail)) {
+          detail = body.detail.map((err: any) => err.msg || JSON.stringify(err)).join(", ");
+        } else if (typeof body.detail === "string") {
+          detail = body.detail;
+        } else {
+          detail = JSON.stringify(body.detail);
+        }
+      }
     } catch {
       /* no-op */
     }

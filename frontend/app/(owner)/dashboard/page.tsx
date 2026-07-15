@@ -99,11 +99,20 @@ export default function DashboardPage() {
                 {data.recent_reviews.map((r, i) => (
                   <div key={i} className="flex items-start justify-between gap-4 px-5 py-4">
                     <div>
-                      <p className="text-sm font-medium text-ink">
-                        {r.customer_name || "Anonymous guest"}{" "}
+                      <p className="text-sm font-medium text-ink flex items-center gap-2 flex-wrap">
+                        <span>{r.customer_name || "Anonymous guest"}</span>
                         <span className="font-mono text-xs text-ink-faint">
                           · {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
                         </span>
+                        {r.is_private ? (
+                          <span className="rounded bg-plum/10 border border-plum/30 text-plum-dark text-[9px] uppercase tracking-wider px-1.5 py-0.5 font-mono">
+                            Private Feedback
+                          </span>
+                        ) : (
+                          <span className="rounded bg-sage/10 border border-sage/30 text-sage-dark text-[9px] uppercase tracking-wider px-1.5 py-0.5 font-mono">
+                            Public Google Review
+                          </span>
+                        )}
                       </p>
                       {r.review_text && (
                         <p className="mt-1 max-w-lg text-sm text-ink-soft">

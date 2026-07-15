@@ -1,5 +1,6 @@
 from app.ai.gemini import generate_review
 from app.rag.service import retrieve_knowledge
+from app.database.supabase import resolve_restaurant_id
 
 
 def generate_review_service(data):
@@ -12,9 +13,11 @@ def generate_review_service(data):
     Customer liked: {tags}
     """
 
+    restaurant_id = resolve_restaurant_id(data.restaurant_id)
+
     # Retrieve relevant restaurant knowledge using RAG
     knowledge_results = retrieve_knowledge(
-        data.restaurant_id,
+        restaurant_id,
         search_query
     )
 

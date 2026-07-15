@@ -1,4 +1,4 @@
-from app.database.supabase import supabase
+from app.database.supabase import supabase, resolve_restaurant_id
 from app.ai.gemini import client
 from google.genai import types
 
@@ -33,11 +33,13 @@ def add_knowledge(data):
 
     embedding = generate_embedding(content)
 
+    restaurant_id = resolve_restaurant_id(data.restaurant_id)
+
     result = (
         supabase
         .table("knowledge_base")
         .insert({
-            "restaurant_id": str(data.restaurant_id),
+            "restaurant_id": restaurant_id,
             "content": content,
             "embedding": embedding
         })
@@ -59,13 +61,15 @@ def retrieve_knowledge(restaurant_id, query: str):
 
     query_embedding = generate_embedding(query)
 
+    restaurant_id = resolve_restaurant_id(restaurant_id)
+
     result = (
         supabase
         .rpc(
             "match_restaurant_knowledge",
             {
                 "query_embedding": query_embedding,
-                "filter_restaurant_id": str(restaurant_id),
+                "filter_restaurant_id": restaurant_id,
                 "match_count": 3
             }
         )

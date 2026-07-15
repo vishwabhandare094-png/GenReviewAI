@@ -1,4 +1,4 @@
-from app.database.supabase import supabase
+from app.database.supabase import supabase, resolve_restaurant_id
 from app.ml.predictor import predict_sentiment
 
 
@@ -17,12 +17,14 @@ def submit_review(data):
     sentiment = prediction["sentiment"]
     confidence = prediction["confidence"]
 
+    restaurant_id = resolve_restaurant_id(data.restaurant_id)
+
     result = (
         supabase
         .table("reviews")
         .insert(
             {
-                "restaurant_id": str(data.restaurant_id),
+                "restaurant_id": restaurant_id,
                 "customer_name": data.customer_name,
                 "rating": data.rating,
                 "review_text": review_text,
@@ -56,12 +58,14 @@ def submit_private_feedback(data):
     sentiment = prediction["sentiment"]
     confidence = prediction["confidence"]
 
+    restaurant_id = resolve_restaurant_id(data.restaurant_id)
+
     result = (
         supabase
         .table("private_feedback")
         .insert(
             {
-                "restaurant_id": str(data.restaurant_id),
+                "restaurant_id": restaurant_id,
                 "customer_name": data.customer_name,
                 "rating": data.rating,
                 "feedback_text": feedback_text,

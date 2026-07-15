@@ -1,7 +1,9 @@
-from app.database.supabase import supabase
+from app.database.supabase import supabase, resolve_restaurant_id
 
 
 def get_tags(restaurant_id: str):
+
+    restaurant_id = resolve_restaurant_id(restaurant_id)
 
     response = (
         supabase.table("review_tags")
