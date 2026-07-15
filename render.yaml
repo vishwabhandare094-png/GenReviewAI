@@ -1,0 +1,52 @@
+services:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BACKEND — FastAPI (Python)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - type: web
+    name: GenReviewAI
+    runtime: python
+    region: ohio
+    rootDir: .
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: CHROMA_DB_PATH
+        value: ./chroma_db
+      - key: MODEL_NAME
+        value: llama3.2
+      - key: CORS_ORIGINS
+        value: "https://genreviewai-frontend.onrender.com"
+    disk:
+      name: chroma-storage
+      mountPath: /opt/render/project/src/chroma_db
+      sizeGB: 1
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # FRONTEND — Next.js (Node.js Web Service, NOT Static)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - type: web
+    name: genreviewai-frontend
+    runtime: node
+    region: frankfurt
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: "https://genreviewai.onrender.com"
