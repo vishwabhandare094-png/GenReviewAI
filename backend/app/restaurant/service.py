@@ -3,9 +3,29 @@ from app.database.supabase import supabase, resolve_restaurant_id
 
 
 def create_restaurant(data):
-
-    biz_res = supabase.table("businesses").select("id").limit(1).execute()
-    business_id = biz_res.data[0]["id"] if biz_res.data else "3a19a62a-8b64-4b77-8bc0-728feb597dd6"
+    """Create a restaurant and link it to the owner's business via org."""
+    
+    # Determine business_id from owner_id if provided
+    business_id = None
+    owner_id = getattr(data, "owner_id", None)
+    
+    if owner_id:
+        try:
+            # Get owner's org_id
+            user_res = supabase.table("users").select("org_id").eq("id", owner_id).single().execute()
+            if user_res.data:
+                org_id = user_res.data.get("org_id")
+                if org_id:
+                    biz_res = supabase.table("businesses").select("id").eq("org_id", org_id).limit(1).execute()
+                    if biz_res.data:
+                        business_id = biz_res.data[0]["id"]
+        except Exception as e:
+            print(f"[Restaurant] Could not find business for owner {owner_id}: {e}")
+    
+    if not business_id:
+        # Fall back to the first available business
+        biz_res = supabase.table("businesses").select("id").limit(1).execute()
+        business_id = biz_res.data[0]["id"] if biz_res.data else "3a19a62a-8b64-4b77-8bc0-728feb597dd6"
 
     restaurant_id = str(uuid.uuid4())
 
@@ -35,7 +55,9 @@ def create_restaurant(data):
         "success": True,
         "message": "Restaurant Created Successfully",
         "data": result.data,
+        "id": restaurant_id,
     }
+
 
 def get_google_review_url(restaurant_id: str):
 

@@ -25,7 +25,15 @@ export default function LoginPage() {
         message?: string;
         access_token?: string;
         token?: string;
-        user?: { id?: string };
+        user?: {
+          id?: string;
+          full_name?: string;
+          email?: string;
+          phone?: string;
+          restaurant_id?: string;
+          restaurant_name?: string;
+          restaurant_short_code?: string;
+        };
       };
 
       if (body.success === false) {
@@ -35,9 +43,14 @@ export default function LoginPage() {
       const token = body.access_token || body.token || "session";
       localStorage.setItem("gr_token", token);
 
-      if (body.user?.id) {
-        localStorage.setItem("gr_owner_id", body.user.id);
-      }
+      const user = body.user || {};
+      if (user.id) localStorage.setItem("gr_owner_id", user.id);
+      if (user.full_name) localStorage.setItem("gr_owner_name", user.full_name);
+      if (user.email) localStorage.setItem("gr_owner_email", user.email);
+      if (user.phone) localStorage.setItem("gr_owner_phone", user.phone);
+      if (user.restaurant_id) localStorage.setItem("gr_restaurant_id", user.restaurant_id);
+      if (user.restaurant_name) localStorage.setItem("gr_restaurant_name", user.restaurant_name);
+      if (user.restaurant_short_code) localStorage.setItem("gr_restaurant_short_code", user.restaurant_short_code);
 
       router.push("/dashboard");
     } catch (err) {
@@ -46,6 +59,7 @@ export default function LoginPage() {
       setLoading(false);
     }
   }
+
 
   return (
     <div className="grain flex min-h-screen items-center justify-center bg-paper-dim px-4 py-12">

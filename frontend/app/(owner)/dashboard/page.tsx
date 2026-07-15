@@ -5,6 +5,7 @@ import { api, ApiError } from "@/lib/api";
 import type { DashboardResponse } from "@/lib/types";
 import PageHeader from "@/components/PageHeader";
 import MetricCard from "@/components/MetricCard";
+import Link from "next/link";
 
 function SentimentPill({ sentiment }: { sentiment?: string }) {
   const s = (sentiment || "").toLowerCase();
@@ -27,16 +28,26 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ownerName, setOwnerName] = useState<string>("");
+  const [restaurantName, setRestaurantName] = useState<string>("");
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
   useEffect(() => {
-    const restaurantId = localStorage.getItem("gr_restaurant_id");
-    if (!restaurantId) {
-      setError("No restaurant is linked to this account yet.");
+    const rid = localStorage.getItem("gr_restaurant_id");
+    const oname = localStorage.getItem("gr_owner_name") || "";
+    const rname = localStorage.getItem("gr_restaurant_name") || "";
+    setOwnerName(oname);
+    setRestaurantName(rname);
+    setRestaurantId(rid);
+
+    if (!rid) {
+      setError("No restaurant found. Please configure your restaurant in Settings.");
       setLoading(false);
       return;
     }
+
     api
-      .getDashboard(restaurantId)
+      .getDashboard(rid)
       .then((res) => setData(res as DashboardResponse))
       .catch((err: ApiError) => setError(err.message))
       .finally(() => setLoading(false));
@@ -47,8 +58,20 @@ export default function DashboardPage() {
       <PageHeader
         eyebrow="Live feed"
         title="Dashboard"
-        description="Every rating that comes through your QR code, sorted and summarized in real time."
+        description={
+          restaurantName
+            ? `${restaurantName} — every rating sorted and summarized in real time.`
+            : "Every rating that comes through your QR code, sorted and summarized in real time."
+        }
       />
+
+      {ownerName && (
+        <div className="px-8 pt-4 pb-0">
+          <p className="text-sm text-ink-soft">
+            Welcome back, <span className="font-semibold text-ink">{ownerName}</span>
+          </p>
+        </div>
+      )}
 
       <div className="px-8 py-8">
         {loading && (
@@ -58,8 +81,16 @@ export default function DashboardPage() {
         )}
 
         {error && !loading && (
-          <div className="border border-plum/30 bg-plum/5 px-5 py-4 text-sm text-plum-dark">
-            {error}
+          <div className="border border-plum/30 bg-plum/5 px-5 py-4 text-sm text-plum-dark space-y-3">
+            <p>{error}</p>
+            {!restaurantId && (
+              <Link
+                href="/settings"
+                className="inline-block bg-paprika px-4 py-2 text-xs font-medium text-paper hover:bg-paprika-dark transition-colors"
+              >
+                Set up your restaurant →
+              </Link>
+            )}
           </div>
         )}
 
@@ -119,6 +150,9 @@ export default function DashboardPage() {
                           {r.review_text}
                         </p>
                       )}
+                      <p className="mt-1 text-[11px] text-ink-faint font-mono">
+                        {r.created_at ? new Date(r.created_at).toLocaleString() : ""}
+                      </p>
                     </div>
                     <SentimentPill sentiment={r.sentiment} />
                   </div>

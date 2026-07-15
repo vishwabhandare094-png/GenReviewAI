@@ -2,6 +2,15 @@ from app.database.supabase import supabase, resolve_restaurant_id
 from app.ml.predictor import predict_sentiment
 
 
+def _notify_owner(restaurant_id: str, customer_name: str, rating: int, text: str, sentiment: str, is_private: bool = False):
+    """Fire-and-forget email notification to restaurant owner."""
+    try:
+        from app.email.service import send_new_review_notification
+        send_new_review_notification(restaurant_id, customer_name, rating, text, sentiment, is_private)
+    except Exception as e:
+        print(f"[Review] Email notification failed (non-fatal): {e}")
+
+
 def submit_review(data):
 
     review_text = data.review_text.strip()
@@ -36,12 +45,16 @@ def submit_review(data):
         .execute()
     )
 
+    # Send email notification to owner (non-blocking)
+    _notify_owner(restaurant_id, data.customer_name, data.rating, review_text, sentiment, is_private=False)
+
     return {
         "success": True,
         "message": "Review Submitted Successfully",
         "prediction": prediction,
         "data": result.data
     }
+
 
 def submit_private_feedback(data):
 
@@ -76,9 +89,12 @@ def submit_private_feedback(data):
         .execute()
     )
 
+    # Send email notification to owner (non-blocking)
+    _notify_owner(restaurant_id, data.customer_name, data.rating, feedback_text, sentiment, is_private=True)
+
     return {
         "success": True,
         "message": "Private Feedback Submitted Successfully",
         "prediction": prediction,
         "data": result.data
-    }
+    }

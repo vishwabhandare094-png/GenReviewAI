@@ -16,6 +16,16 @@ export interface Restaurant {
   rating_threshold: number;
 }
 
+export interface OwnerProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  restaurant_id?: string;
+  restaurant_name?: string;
+  restaurant_short_code?: string;
+}
+
 export interface DashboardMetrics {
   total_reviews: number;
   average_rating: number;
@@ -30,6 +40,7 @@ export interface RecentReview {
   review_text?: string;
   sentiment?: Sentiment;
   is_private?: boolean;
+  created_at?: string;
 }
 
 export interface DashboardResponse {
