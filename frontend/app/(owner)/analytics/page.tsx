@@ -1,19 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
 import { api, ApiError } from "@/lib/api";
 import type { DashboardResponse } from "@/lib/types";
 import PageHeader from "@/components/PageHeader";
@@ -58,6 +45,11 @@ export default function AnalyticsPage() {
   const starRatings = ["5", "4", "3", "2", "1"];
 
   const sentimentPct = raw?.sentiment_percentage || { positive: 0, negative: 0, neutral: 0 };
+  const totalReviews = dashboard?.metrics.total_reviews || raw?.total_reviews || 0;
+  const averageRating = dashboard?.metrics.average_rating || 0;
+  const privateCount = dashboard?.recent_reviews?.filter((review) => review.is_private).length || 0;
+  const trendData = raw?.review_trend || [];
+  const maxTrend = Math.max(...trendData.map((item: any) => item.reviews || 0), 1);
   const sentiments = [
     { name: "Positive", color: "#5F7A52", value: sentimentPct.positive },
     { name: "Neutral", color: "#D99A32", value: sentimentPct.neutral },
@@ -69,7 +61,7 @@ export default function AnalyticsPage() {
       <PageHeader
         eyebrow="Sentiment breakdown"
         title="Analytics"
-        description="How your ratings split, and the recurring signals in what customers write."
+        description="Track ratings, private feedback, customer sentiment, and simple next actions for each restaurant."
       />
 
       <div className="px-8 py-8">
@@ -86,7 +78,40 @@ export default function AnalyticsPage() {
         )}
 
         {!loading && !error && (
-          <div className="grid gap-8 lg:grid-cols-2">
+          <div className="space-y-8">
+            <div className="flex flex-col gap-4 border border-line bg-paper p-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint">
+                  Restaurant view
+                </p>
+                <p className="mt-1 text-sm text-ink-soft">
+                  Switch between outlets once multi-restaurant backend is approved.
+                </p>
+              </div>
+              <select className="border border-line bg-paper-dim px-3.5 py-2.5 text-sm text-ink outline-none focus:border-paprika">
+                <option>{localStorage.getItem("gr_restaurant_name") || "Current restaurant"}</option>
+                <option>Downtown branch</option>
+                <option>Airport branch</option>
+              </select>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-4">
+              {[
+                { label: "Total reviews", value: totalReviews },
+                { label: "Average rating", value: averageRating.toFixed(1) },
+                { label: "Positive share", value: `${sentimentPct.positive.toFixed(0)}%` },
+                { label: "Private cases", value: privateCount },
+              ].map((item) => (
+                <div key={item.label} className="border border-line bg-paper p-5">
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 font-mono text-3xl text-ink">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-8 lg:grid-cols-2">
             {/* Sentiment split card */}
             <div className="border border-line bg-paper p-6">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint">
@@ -97,38 +122,28 @@ export default function AnalyticsPage() {
                   Not enough reviews yet to chart a split.
                 </p>
               ) : (
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius={60}
-                        outerRadius={95}
-                        paddingAngle={3}
-                      >
-                        {pieData.map((_, i) => (
-                          <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="#FBF3E7" strokeWidth={2} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          background: "#241A14",
-                          border: "none",
-                          borderRadius: 4,
-                          color: "#FBF3E7",
-                          fontFamily: "var(--font-worksans)",
-                          fontSize: 12,
-                        }}
-                      />
-                      <Legend
-                        formatter={(v) => (
-                          <span className="font-mono text-xs text-ink-soft">{v}</span>
-                        )}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                  {pieData.map((item, index) => {
+                    const pct = totalReviews ? Math.round((item.value / totalReviews) * 100) : 0;
+                    return (
+                      <div key={item.name} className="border border-line bg-paper-dim p-4">
+                        <div className="h-28 w-full bg-paper">
+                          <div className="flex h-full items-end px-5 pb-4">
+                            <div
+                              className="w-full transition-all"
+                              style={{
+                                height: `${Math.max(pct, 8)}%`,
+                                backgroundColor: COLORS[index % COLORS.length],
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <p className="mt-3 font-medium text-ink">{item.name}</p>
+                        <p className="mt-1 font-mono text-2xl text-ink">{item.value}</p>
+                        <p className="text-sm text-ink-soft">{pct}% of total</p>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -177,48 +192,52 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Review Volume Trend card */}
-            {raw && raw.review_trend && raw.review_trend.length > 0 && (
+            {trendData.length > 0 && (
               <div className="border border-line bg-paper p-6 col-span-1 lg:col-span-2">
                 <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint">
                   Review Volume Trend
                 </p>
-                <div className="mt-6 h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={raw.review_trend}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E6D3BC" />
-                      <XAxis 
-                        dataKey="date" 
-                        stroke="#241A14" 
-                        tick={{ fontSize: 10, fontFamily: "var(--font-worksans)" }} 
+                <div className="mt-6 flex h-64 items-end gap-4 border-b border-line px-4 pb-4">
+                  {trendData.map((item: any) => (
+                    <div key={item.date} className="flex h-full flex-1 flex-col justify-end">
+                      <p className="mb-2 text-center font-mono text-xs text-ink">{item.reviews}</p>
+                      <div
+                        className="w-full bg-paprika"
+                        style={{ height: `${Math.max((item.reviews / maxTrend) * 100, 8)}%` }}
                       />
-                      <YAxis 
-                        stroke="#241A14" 
-                        tick={{ fontSize: 10, fontFamily: "var(--font-worksans)" }} 
-                        allowDecimals={false}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          background: "#241A14",
-                          border: "none",
-                          borderRadius: 4,
-                          color: "#FBF3E7",
-                          fontFamily: "var(--font-worksans)",
-                          fontSize: 12,
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="reviews" 
-                        stroke="#C05C3E" 
-                        strokeWidth={2} 
-                        dot={{ r: 4, stroke: "#C05C3E", strokeWidth: 1, fill: "#FBF3E7" }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                      <p className="mt-2 text-center font-mono text-[10px] text-ink-faint">{item.date}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
+
+            <div className="border border-line bg-paper p-6 lg:col-span-2">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint">
+                Suggested actions
+              </p>
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <div className="border border-line bg-paper-dim p-4">
+                  <p className="font-medium text-ink">Promote strong tags</p>
+                  <p className="mt-2 text-sm text-ink-soft">
+                    Add publicity tags like "Best dinner spot" or "Fast lunch service" to guide better public reviews.
+                  </p>
+                </div>
+                <div className="border border-line bg-paper-dim p-4">
+                  <p className="font-medium text-ink">Watch low ratings</p>
+                  <p className="mt-2 text-sm text-ink-soft">
+                    Private cases should be followed up from the dashboard before the next rush hour.
+                  </p>
+                </div>
+                <div className="border border-line bg-paper-dim p-4">
+                  <p className="font-medium text-ink">Improve AI context</p>
+                  <p className="mt-2 text-sm text-ink-soft">
+                    Add menu, ambience, and offer details to the knowledge base for better generated reviews.
+                  </p>
+                </div>
+              </div>
+            </div>
+            </div>
           </div>
         )}
       </div>
