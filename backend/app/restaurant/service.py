@@ -46,6 +46,7 @@ def create_restaurant(data):
         "country": getattr(data, "country", "India"),
         "google_review_url": getattr(data, "google_review_link", ""),
         "short_code": short_code,
+        "qr_code_url": f"qr/image/{short_code}.png",
         "is_active": True,
         "description": json.dumps(metadata)
     }
@@ -67,7 +68,7 @@ def create_restaurant(data):
 
 
 def list_restaurants(owner_id: str):
-    select_cols = "id, restaurant_name, brand_name, cuisine, phone, email, address, city, state, country, google_review_url, short_code, is_active, description"
+    select_cols = "id, restaurant_name, brand_name, cuisine, phone, email, address, city, state, country, google_review_url, short_code, qr_code_url, is_active, description"
     try:
         result = supabase.table("restaurants").select(select_cols).eq("owner_id", owner_id).execute()
     except Exception as e:
@@ -169,7 +170,7 @@ def get_short_codes():
 
 
 def get_restaurant_by_short_code(short_code: str):
-    select_cols = "id, restaurant_name, brand_name, short_code, google_review_url, is_active, description"
+    select_cols = "id, restaurant_name, brand_name, short_code, google_review_url, qr_code_url, is_active, description"
     try:
         result = (
             supabase

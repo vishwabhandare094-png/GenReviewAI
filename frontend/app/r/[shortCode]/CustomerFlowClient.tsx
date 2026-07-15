@@ -170,6 +170,13 @@ export default function CustomerFlowClient() {
       })
       .finally(() => setRestaurantLoading(false));
   }, [shortCode]);
+  useEffect(() => {
+    if (restaurantName) {
+      document.title = `Rate & Review ${restaurantName} | GenReviewAI`;
+    } else {
+      document.title = "Rate & Review | GenReviewAI";
+    }
+  }, [restaurantName]);
 
   useEffect(() => {
     if (!restaurantId) return;

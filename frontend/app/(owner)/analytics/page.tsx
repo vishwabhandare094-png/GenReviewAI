@@ -12,6 +12,8 @@ export default function AnalyticsPage() {
   const [raw, setRaw] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [insights, setInsights] = useState<any[]>([]);
+  const [insightsLoading, setInsightsLoading] = useState(true);
 
   useEffect(() => {
     document.title = "Analytics & Reports | GenReviewAI";
@@ -19,6 +21,7 @@ export default function AnalyticsPage() {
     if (!restaurantId) {
       setError("No restaurant is linked to this account yet.");
       setLoading(false);
+      setInsightsLoading(false);
       return;
     }
     Promise.allSettled([
@@ -31,6 +34,17 @@ export default function AnalyticsPage() {
         if (d.status === "rejected") setError((d.reason as ApiError).message);
       })
       .finally(() => setLoading(false));
+
+    api.getAiInsights(restaurantId)
+      .then((res) => {
+        if (res && res.insights) {
+          setInsights(res.insights);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load AI insights:", err);
+      })
+      .finally(() => setInsightsLoading(false));
   }, []);
 
   const pieData = dashboard
@@ -213,30 +227,55 @@ export default function AnalyticsPage() {
               </div>
             )}
 
+            {/* AI Insights Hub */}
             <div className="border border-line bg-paper p-6 lg:col-span-2">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint">
-                Suggested actions
-              </p>
-              <div className="mt-5 grid gap-4 md:grid-cols-3">
-                <div className="border border-line bg-paper-dim p-4">
-                  <p className="font-medium text-ink">Promote strong tags</p>
-                  <p className="mt-2 text-sm text-ink-soft">
-                    Add publicity tags like "Best dinner spot" or "Fast lunch service" to guide better public reviews.
-                  </p>
-                </div>
-                <div className="border border-line bg-paper-dim p-4">
-                  <p className="font-medium text-ink">Watch low ratings</p>
-                  <p className="mt-2 text-sm text-ink-soft">
-                    Private cases should be followed up from the dashboard before the next rush hour.
-                  </p>
-                </div>
-                <div className="border border-line bg-paper-dim p-4">
-                  <p className="font-medium text-ink">Improve AI context</p>
-                  <p className="mt-2 text-sm text-ink-soft">
-                    Add menu, ambience, and offer details to the knowledge base for better generated reviews.
-                  </p>
-                </div>
+              <div className="flex items-center gap-3">
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint">
+                  AI Insights Hub
+                </p>
+                <span className="rounded-full border border-paprika/40 bg-paprika/10 px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-paprika">
+                  Powered by Gemini
+                </span>
               </div>
+              <p className="mt-1 text-xs text-ink-faint">
+                Real-time actionable recommendations based on your actual customer reviews and feedback.
+              </p>
+
+              {insightsLoading ? (
+                <div className="mt-6 space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 animate-pulse rounded border border-line bg-paper-dim" />
+                  ))}
+                </div>
+              ) : insights.length === 0 ? (
+                <p className="mt-6 text-sm text-ink-faint">
+                  No insights available yet. Gemini needs review data to generate recommendations.
+                </p>
+              ) : (
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  {insights.map((insight: any, idx: number) => {
+                    const priority = (insight.priority || "medium").toLowerCase();
+                    const priorityConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+                      high: { label: "High Priority", bg: "bg-plum/10 border-plum/30", text: "text-plum-dark", dot: "bg-plum" },
+                      medium: { label: "Medium", bg: "bg-amber/10 border-amber/30", text: "text-amber-dark", dot: "bg-amber" },
+                      low: { label: "Low", bg: "bg-sage/10 border-sage/30", text: "text-sage-dark", dot: "bg-sage" },
+                    };
+                    const pc = priorityConfig[priority] || priorityConfig.medium;
+                    return (
+                      <div key={idx} className="border border-line bg-paper-dim p-4 flex flex-col gap-2 transition-all hover:border-paprika/30 hover:shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full flex-shrink-0 ${pc.dot}`} />
+                          <span className={`rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider ${pc.bg} ${pc.text}`}>
+                            {pc.label}
+                          </span>
+                        </div>
+                        <p className="font-semibold text-ink text-sm leading-snug">{insight.title}</p>
+                        <p className="text-xs text-ink-soft leading-relaxed">{insight.description}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             </div>
           </div>

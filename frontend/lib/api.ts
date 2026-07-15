@@ -169,6 +169,11 @@ export const api = {
   // Analytics
   getAnalytics: (restaurantId: string) =>
     request(`/analytics/${restaurantId}`),
+
+  getAiInsights: (restaurantId: string) =>
+    request<{ success: boolean; insights: { title: string; description: string; priority: string }[] }>(
+      `/analytics/${restaurantId}/insights`
+    ),
 };
 
 export { ApiError, BASE_URL };

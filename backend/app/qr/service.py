@@ -1,13 +1,9 @@
 import os
 import uuid
 import qrcode
+import io
 
 from app.database.supabase import supabase
-
-UPLOAD_DIR = "uploads/qr"
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 
 def _frontend_url():
     configured = os.environ.get("FRONTEND_URL", "").strip()
@@ -21,6 +17,16 @@ def _frontend_url():
             return origin
 
     return "https://genreviewai-frontend.onrender.com"
+
+
+def get_qr_image_stream(short_code: str):
+    frontend_url = _frontend_url()
+    review_url = f"{frontend_url}/r/{short_code}/"
+    img = qrcode.make(review_url)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
 
 
 def generate_qr(restaurant_id: str, force_reset: bool = False):
@@ -38,50 +44,49 @@ def generate_qr(restaurant_id: str, force_reset: bool = False):
         short_code = row.get("short_code")
         qr_code_url = row.get("qr_code_url")
         
-        if short_code and qr_code_url:
-            # Verify file exists on disk
-            if os.path.exists(qr_code_url):
-                frontend_url = _frontend_url()
-                review_url = f"{frontend_url}/r/{short_code}/"
-                return {
-                    "success": True,
-                    "message": "Existing stable QR code retrieved",
-                    "short_code": short_code,
-                    "review_url": review_url,
-                    "qr_path": qr_code_url,
-                    "stable": True,
-                    "reset": False
-                }
+        if short_code:
+            dynamic_url = f"qr/image/{short_code}.png"
+            frontend_url = _frontend_url()
+            review_url = f"{frontend_url}/r/{short_code}/"
+            
+            # If the database URL is not set or points to old local uploads disk, update it
+            if not qr_code_url or "uploads/" in qr_code_url:
+                supabase.table("restaurants").update(
+                    {
+                        "qr_code_url": dynamic_url
+                    }
+                ).eq("id", restaurant_id).execute()
+                qr_code_url = dynamic_url
+                
+            return {
+                "success": True,
+                "message": "Existing stable QR code retrieved",
+                "short_code": short_code,
+                "review_url": review_url,
+                "qr_path": qr_code_url,
+                "stable": True,
+                "reset": False
+            }
 
-    # If the image file is missing, regenerate the PNG but keep the same
-    # short_code. A new code is created only for a deliberate reset.
-    existing_short_code = None
-    if res.data:
-        existing_short_code = res.data[0].get("short_code")
-        
-    short_code = existing_short_code if (existing_short_code and not force_reset) else str(uuid.uuid4())[:8].upper()
-    
+    # Generate a fresh short code
+    short_code = str(uuid.uuid4())[:8].upper()
+    dynamic_url = f"qr/image/{short_code}.png"
     frontend_url = _frontend_url()
     review_url = f"{frontend_url}/r/{short_code}/"
     
-    img = qrcode.make(review_url)
-    filename = f"{short_code}.png"
-    filepath = os.path.join(UPLOAD_DIR, filename)
-    img.save(filepath)
-
     supabase.table("restaurants").update(
         {
             "short_code": short_code,
-            "qr_code_url": filepath
+            "qr_code_url": dynamic_url
         }
     ).eq("id", restaurant_id).execute()
 
     return {
         "success": True,
-        "message": "QR generated successfully" if force_reset or not existing_short_code else "Stable QR image regenerated",
+        "message": "QR generated successfully" if force_reset else "Stable QR image generated",
         "short_code": short_code,
         "review_url": review_url,
-        "qr_path": filepath,
+        "qr_path": dynamic_url,
         "stable": not force_reset,
         "reset": force_reset
     }
