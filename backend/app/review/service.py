@@ -3,9 +3,19 @@ from app.ml.predictor import predict_sentiment
 
 
 def _notify_owner(restaurant_id: str, customer_name: str, rating: int, text: str, sentiment: str, is_private: bool = False):
-    """Fire-and-forget email notification to restaurant owner only if rating is under threshold (4.0)."""
-    if rating >= 4 and not is_private:
-        print(f"[Review] Rating {rating} is at or above threshold. Skipping email notification to owner.")
+    """Fire-and-forget email notification to restaurant owner only if rating is under dynamic threshold."""
+    threshold = 4.0
+    try:
+        res = supabase.table("restaurants").select("description").eq("id", restaurant_id).single().execute()
+        if res.data and res.data.get("description"):
+            import json
+            metadata = json.loads(res.data["description"])
+            threshold = float(metadata.get("rating_threshold", 4.0))
+    except Exception as e:
+        print(f"[Review] Error fetching restaurant threshold for notification: {e}")
+
+    if rating >= threshold:
+        print(f"[Review] Rating {rating} is at or above threshold {threshold}. Skipping email notification to owner.")
         return {"success": True, "skipped": True, "message": "Rating is above alert threshold"}
     try:
         from app.email.service import send_new_review_notification

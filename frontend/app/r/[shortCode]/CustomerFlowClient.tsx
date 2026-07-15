@@ -5,6 +5,58 @@ import { api, ApiError } from "@/lib/api";
 import StarRating from "@/components/StarRating";
 import TicketCard from "@/components/TicketCard";
 
+function hexToRgbStr(hex: string): string {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `${r} ${g} ${b}`;
+}
+
+function getThemeStyles(themeName: string) {
+  let accent = "#C1481D";
+  let bg = "#FBF3E7";
+  let text = "#241A14";
+
+  if (themeName === "Modern Green") {
+    accent = "#5F7A52";
+    bg = "#F4F8EF";
+    text = "#1F2A1C";
+  } else if (themeName === "Premium Dark") {
+    accent = "#D99A32";
+    bg = "#241A14";
+    text = "#FFFFFF";
+  } else if (themeName === "Soft Plum") {
+    accent = "#8B3A56";
+    bg = "#FFF6F8";
+    text = "#2B1820";
+  }
+
+  const isDark = themeName === "Premium Dark";
+  const paperDim = isDark ? "#17100c" : "#F1E4CE";
+  const paperDeep = isDark ? "#100a07" : "#E7D6B6";
+  const line = isDark ? "#382920" : "#D8C6A8";
+  
+  const inkSoft = isDark ? "#e0d8d3" : "#5C4A3D";
+  const inkFaint = isDark ? "#b0a096" : "#8A7566";
+
+  const accentDark = isDark ? "#c28827" : "#96380F";
+  const accentLight = isDark ? "#e3ad54" : "#E06B3C";
+
+  return {
+    "--color-paper": hexToRgbStr(bg),
+    "--color-paper-dim": hexToRgbStr(paperDim),
+    "--color-paper-deep": hexToRgbStr(paperDeep),
+    "--color-ink": hexToRgbStr(text),
+    "--color-ink-soft": hexToRgbStr(inkSoft),
+    "--color-ink-faint": hexToRgbStr(inkFaint),
+    "--color-paprika": hexToRgbStr(accent),
+    "--color-paprika-dark": hexToRgbStr(accentDark),
+    "--color-paprika-light": hexToRgbStr(accentLight),
+    "--color-line": hexToRgbStr(line),
+  } as React.CSSProperties;
+}
+
 type Step = "rating" | "tags" | "drafts" | "posted" | "feedback" | "feedback-done";
 
 type RestaurantDetails = {
@@ -12,8 +64,9 @@ type RestaurantDetails = {
   restaurant_name?: string;
   brand_name?: string;
   short_code: string;
-  google_review_link?: string;
+  google_review_url?: string;
   rating_threshold?: number;
+  theme_name?: string;
 };
 
 const DEFAULT_THRESHOLD = 4.0;
@@ -197,7 +250,7 @@ export default function CustomerFlowClient() {
         const url =
           (res as { google_review_link?: string; url?: string }).google_review_link ||
           (res as { google_review_link?: string; url?: string }).url ||
-          restaurant?.google_review_link ||
+          restaurant?.google_review_url ||
           null;
         setGoogleUrl(url);
         if (url) window.open(url, "_blank", "noopener,noreferrer");
@@ -237,11 +290,11 @@ export default function CustomerFlowClient() {
       const url =
         (res as { google_review_link?: string; url?: string }).google_review_link ||
         (res as { google_review_link?: string; url?: string }).url ||
-        restaurant?.google_review_link;
+        restaurant?.google_review_url;
       if (url) window.open(url, "_blank", "noopener,noreferrer");
     } catch {
-      if (restaurant?.google_review_link) {
-        window.open(restaurant.google_review_link, "_blank", "noopener,noreferrer");
+      if (restaurant?.google_review_url) {
+        window.open(restaurant.google_review_url, "_blank", "noopener,noreferrer");
       }
     }
   }
@@ -282,8 +335,15 @@ export default function CustomerFlowClient() {
     );
   }
 
+  const themeStyles = useMemo(() => {
+    return getThemeStyles(restaurant?.theme_name || "Warm Ticket");
+  }, [restaurant?.theme_name]);
+
   return (
-    <div className="grain flex min-h-screen flex-col items-center justify-center bg-paper-dim px-4 py-10">
+    <div 
+      className="grain flex min-h-screen flex-col items-center justify-center bg-paper-dim px-4 py-10"
+      style={themeStyles}
+    >
       <div className="w-full max-w-sm">
         <TicketCard className="animate-print-in">
           <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-ink-faint">

@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-paper: 251 243 231;
+  --color-paper-dim: 241 228 206;
+  --color-paper-deep: 231 214 182;
+  --color-ink: 36 26 20;
+  --color-ink-soft: 92 74 61;
+  --color-ink-faint: 138 117 102;
+  --color-paprika: 193 72 29;
+  --color-paprika-dark: 150 56 15;
+  --color-paprika-light: 224 107 60;
+  --color-line: 216 198 168;
+}
+
 @layer base {
   * {
     @apply border-line;

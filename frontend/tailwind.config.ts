@@ -8,16 +8,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: "#FBF3E7",
-        "paper-dim": "#F1E4CE",
-        "paper-deep": "#E7D6B6",
-        ink: "#241A14",
-        "ink-soft": "#5C4A3D",
-        "ink-faint": "#8A7566",
+        paper: "rgb(var(--color-paper) / <alpha-value>)",
+        "paper-dim": "rgb(var(--color-paper-dim) / <alpha-value>)",
+        "paper-deep": "rgb(var(--color-paper-deep) / <alpha-value>)",
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
+        "ink-soft": "rgb(var(--color-ink-soft) / <alpha-value>)",
+        "ink-faint": "rgb(var(--color-ink-faint) / <alpha-value>)",
         paprika: {
-          DEFAULT: "#C1481D",
-          dark: "#96380F",
-          light: "#E06B3C",
+          DEFAULT: "rgb(var(--color-paprika) / <alpha-value>)",
+          dark: "rgb(var(--color-paprika-dark) / <alpha-value>)",
+          light: "rgb(var(--color-paprika-light) / <alpha-value>)",
         },
         sage: {
           DEFAULT: "#5F7A52",
@@ -32,7 +32,7 @@ const config: Config = {
           DEFAULT: "#8B3A56",
           dark: "#6B2B42",
         },
-        line: "#D8C6A8",
+        line: "rgb(var(--color-line) / <alpha-value>)",
       },
       fontFamily: {
         display: ["var(--font-fraunces)", "Georgia", "serif"],

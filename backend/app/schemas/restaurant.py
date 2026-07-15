@@ -14,6 +14,7 @@ class RestaurantCreate(BaseModel):
     country: str
     google_review_link: str
     rating_threshold: float = 4.0
+    theme_name: str = "Warm Ticket"
 
 
 class RestaurantUpdate(BaseModel):
@@ -27,3 +28,5 @@ class RestaurantUpdate(BaseModel):
     state: str
     country: str
     google_review_link: str
+    rating_threshold: float = 4.0
+    theme_name: str = "Warm Ticket"

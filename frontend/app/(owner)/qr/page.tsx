@@ -4,16 +4,11 @@ import { useEffect, useState } from "react";
 import { api, ApiError, BASE_URL } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 
-const DEMO_RESTAURANTS = [
-  { id: "current", name: "Current restaurant", code: "" },
-  { id: "branch-1", name: "Downtown branch", code: "DWNTA123" },
-  { id: "branch-2", name: "Airport branch", code: "AIRPT456" },
-];
-
 const QR_THEMES = [
-  { name: "Warm Table Card", accent: "#C1481D", bg: "#FBF3E7" },
-  { name: "Clean Counter Card", accent: "#241A14", bg: "#FFFFFF" },
-  { name: "Fresh Cafe Card", accent: "#5F7A52", bg: "#F4F8EF" },
+  { name: "Warm Ticket", accent: "#C1481D", bg: "#FBF3E7" },
+  { name: "Modern Green", accent: "#5F7A52", bg: "#F4F8EF" },
+  { name: "Premium Dark", accent: "#D99A32", bg: "#241A14" },
+  { name: "Soft Plum", accent: "#8B3A56", bg: "#FFF6F8" },
 ];
 
 const QR_PATTERN = [
@@ -57,51 +52,107 @@ function NormalQrPreview() {
   );
 }
 
+type RestaurantRecord = {
+  id: string;
+  restaurant_name: string;
+  short_code?: string;
+  theme_name?: string;
+  qr_code_url?: string;
+  google_review_url?: string;
+};
+
 export default function QrPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [restaurants, setRestaurants] = useState<RestaurantRecord[]>([]);
+  
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState<string>("");
   const [shortCode, setShortCode] = useState<string | null>(null);
   const [reviewUrl, setReviewUrl] = useState<string | null>(null);
-  const [selectedRestaurant, setSelectedRestaurant] = useState("current");
+  const [qrCodePath, setQrCodePath] = useState<string | null>(null);
+  
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>("");
   const [selectedTheme, setSelectedTheme] = useState(QR_THEMES[0]);
 
+  // Labels checkboxes
+  const [showName, setShowName] = useState(true);
+  const [showUrl, setShowUrl] = useState(true);
+  const [showReminder, setShowReminder] = useState(true);
+  const [showAddress, setShowAddress] = useState(false);
+
   useEffect(() => {
-    const rid = localStorage.getItem("gr_restaurant_id");
-    const rname = localStorage.getItem("gr_restaurant_name") || "";
-    const sc = localStorage.getItem("gr_restaurant_short_code");
-    const savedTheme = localStorage.getItem("gr_active_theme");
-    setRestaurantId(rid);
-    setRestaurantName(rname);
-    setShortCode(sc);
-    if (savedTheme) {
-      const theme = QR_THEMES.find((item) => item.name === savedTheme);
-      if (theme) setSelectedTheme(theme);
-    }
-    if (sc) {
-      setReviewUrl(`${window.location.origin}/r/${sc}`);
+    const ownerId = localStorage.getItem("gr_owner_id") || "";
+    const activeId = localStorage.getItem("gr_restaurant_id") || "";
+
+    if (ownerId) {
+      api.listRestaurants(ownerId)
+        .then((res) => {
+          const list = (res.restaurants || []) as RestaurantRecord[];
+          setRestaurants(list);
+          if (list.length > 0) {
+            const target = list.find(r => r.id === activeId) || list[0];
+            selectRestaurant(target);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load restaurants for QR:", err);
+          setError("Failed to fetch restaurants list.");
+        });
     }
   }, []);
 
+  function selectRestaurant(restaurant: RestaurantRecord) {
+    setRestaurantId(restaurant.id);
+    setSelectedRestaurantId(restaurant.id);
+    setRestaurantName(restaurant.restaurant_name);
+    
+    const sc = restaurant.short_code || null;
+    setShortCode(sc);
+    setQrCodePath(restaurant.qr_code_url || null);
+    
+    if (sc) {
+      setReviewUrl(`${window.location.origin}/r/${sc}`);
+    } else {
+      setReviewUrl(null);
+    }
+
+    const matchedTheme = QR_THEMES.find(t => t.name === restaurant.theme_name) || QR_THEMES[0];
+    setSelectedTheme(matchedTheme);
+  }
+
+  function handleRestaurantChange(id: string) {
+    const found = restaurants.find(r => r.id === id);
+    if (found) {
+      selectRestaurant(found);
+      localStorage.setItem("gr_restaurant_id", found.id);
+      localStorage.setItem("gr_restaurant_name", found.restaurant_name);
+      localStorage.setItem("gr_restaurant_short_code", found.short_code || "");
+      localStorage.setItem("gr_active_theme", found.theme_name || QR_THEMES[0].name);
+    }
+  }
+
   async function handleGenerate() {
+    if (!restaurantId) return;
     setLoading(true);
     setError(null);
-    setResult(null);
     try {
-      const rid = restaurantId;
-      if (!rid) throw new Error("No restaurant is linked to this account yet. Please configure your restaurant in Settings.");
-      const res = await api.generateQr(rid);
+      const res = await api.generateQr(restaurantId);
       const data = res as Record<string, unknown>;
-      setResult(data);
-      // Update short code and review URL from response if provided
-      if (data.short_code) {
-        const sc = data.short_code as string;
-        setShortCode(sc);
-        localStorage.setItem("gr_restaurant_short_code", sc);
+      
+      const sc = (data.short_code as string) || null;
+      const path = (data.qr_path as string) || null;
+      
+      setShortCode(sc);
+      setQrCodePath(path);
+
+      if (sc) {
         setReviewUrl(`${window.location.origin}/r/${sc}`);
+        localStorage.setItem("gr_restaurant_short_code", sc);
       }
+      
+      // Update restaurant list in state
+      setRestaurants(prev => prev.map(r => r.id === restaurantId ? { ...r, short_code: sc || undefined, qr_code_url: path || undefined } : r));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     } finally {
@@ -109,24 +160,18 @@ export default function QrPage() {
     }
   }
 
-  const imageUrl =
-    result &&
-    (["qr_url", "qr_path", "url", "image_url", "path"]
-      .map((k) => result[k])
-      .find((v) => typeof v === "string") as string | undefined);
-
-  const resolvedSrc = imageUrl
-    ? imageUrl.startsWith("http")
-      ? imageUrl
-      : `${BASE_URL}/${imageUrl.replace(/\\/g, "/")}`
+  const resolvedSrc = qrCodePath
+    ? qrCodePath.startsWith("http")
+      ? qrCodePath
+      : `${BASE_URL}/${qrCodePath.replace(/\\/g, "/")}`
     : undefined;
 
   return (
-    <div>
+    <div className="max-w-7xl mx-auto">
       <PageHeader
         eyebrow="Customer review link"
-        title="Review QR"
-        description="Create one friendly QR card for each restaurant. Print it once and customers can scan it again and again."
+        title="Review QR Card"
+        description="Select a restaurant to view or generate its customer-facing review QR code. Print the card and display on tables."
       />
 
       <div className="grid gap-6 px-8 py-8 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -134,26 +179,28 @@ export default function QrPage() {
           <div className="border border-line bg-paper p-5">
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block text-sm">
-                <span className="mb-1.5 block font-medium text-ink-soft">
-                  Restaurant
+                <span className="mb-1.5 block font-semibold text-ink-soft">
+                  Outlet / Restaurant
                 </span>
                 <select
-                  value={selectedRestaurant}
-                  onChange={(e) => setSelectedRestaurant(e.target.value)}
-                  className="w-full border border-line bg-paper-dim px-3.5 py-2.5 text-ink outline-none focus:border-paprika"
+                  value={selectedRestaurantId}
+                  onChange={(e) => handleRestaurantChange(e.target.value)}
+                  className="w-full border border-line bg-paper-dim px-3.5 py-2.5 text-ink outline-none focus:border-paprika text-sm font-medium"
                 >
-                  <option value="current">{restaurantName || "Current restaurant"}</option>
-                  {DEMO_RESTAURANTS.slice(1).map((restaurant) => (
-                    <option key={restaurant.id} value={restaurant.id}>
-                      {restaurant.name}
+                  {restaurants.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.restaurant_name}
                     </option>
                   ))}
+                  {restaurants.length === 0 && (
+                    <option value="">No restaurants configured</option>
+                  )}
                 </select>
               </label>
 
               <label className="block text-sm">
-                <span className="mb-1.5 block font-medium text-ink-soft">
-                  Card style
+                <span className="mb-1.5 block font-semibold text-ink-soft">
+                  Card theme style
                 </span>
                 <select
                   value={selectedTheme.name}
@@ -161,7 +208,7 @@ export default function QrPage() {
                     const theme = QR_THEMES.find((item) => item.name === e.target.value);
                     if (theme) setSelectedTheme(theme);
                   }}
-                  className="w-full border border-line bg-paper-dim px-3.5 py-2.5 text-ink outline-none focus:border-paprika"
+                  className="w-full border border-line bg-paper-dim px-3.5 py-2.5 text-ink outline-none focus:border-paprika text-sm font-medium"
                 >
                   {QR_THEMES.map((theme) => (
                     <option key={theme.name}>{theme.name}</option>
@@ -173,19 +220,19 @@ export default function QrPage() {
             <div className="mt-5 grid gap-4 border-t border-line pt-5 text-sm md:grid-cols-3">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">
-                  Review code
+                  Review short code
                 </p>
-                <p className="mt-1 font-mono text-paprika">{shortCode || "Create one below"}</p>
+                <p className="mt-1 font-mono text-paprika font-semibold">{shortCode || "Create one below"}</p>
               </div>
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">
-                  Works for
+                  Active state
                 </p>
-                <p className="mt-1 text-ink-soft">Unlimited customer scans</p>
+                <p className="mt-1 text-ink-soft font-medium">Ready for scans</p>
               </div>
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">
-                  Selected style
+                  Palette Colors
                 </p>
                 <div className="mt-2 flex gap-1.5">
                   <span className="h-5 w-5 border border-line" style={{ backgroundColor: selectedTheme.accent }} />
@@ -197,51 +244,54 @@ export default function QrPage() {
 
           <div className="border border-line bg-paper p-5">
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint">
-              Show on printed card
+              Configure QR Card Labels
             </p>
             <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <label className="flex items-center gap-2 text-ink-soft">
-                <input type="checkbox" defaultChecked className="accent-paprika" />
-                Restaurant name
+              <label className="flex items-center gap-2 text-ink-soft font-medium cursor-pointer">
+                <input type="checkbox" checked={showName} onChange={(e) => setShowName(e.target.checked)} className="accent-paprika cursor-pointer" />
+                Show Restaurant Name
               </label>
-              <label className="flex items-center gap-2 text-ink-soft">
-                <input type="checkbox" defaultChecked className="accent-paprika" />
-                Short review URL
+              <label className="flex items-center gap-2 text-ink-soft font-medium cursor-pointer">
+                <input type="checkbox" checked={showUrl} onChange={(e) => setShowUrl(e.target.checked)} className="accent-paprika cursor-pointer" />
+                Show Short Review URL
               </label>
-              <label className="flex items-center gap-2 text-ink-soft">
-                <input type="checkbox" defaultChecked className="accent-paprika" />
-                Review reminder
+              <label className="flex items-center gap-2 text-ink-soft font-medium cursor-pointer">
+                <input type="checkbox" checked={showReminder} onChange={(e) => setShowReminder(e.target.checked)} className="accent-paprika cursor-pointer" />
+                Show Review Reminder Text
               </label>
-              <label className="flex items-center gap-2 text-ink-soft">
-                <input type="checkbox" className="accent-paprika" />
-                Address line
+              <label className="flex items-center gap-2 text-ink-soft font-medium cursor-pointer">
+                <input type="checkbox" checked={showAddress} onChange={(e) => setShowAddress(e.target.checked)} className="accent-paprika cursor-pointer" />
+                Show Address Details
               </label>
             </div>
           </div>
 
           <div className="border border-line bg-paper p-5">
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint">
-              Simple rule
+              QR Guidelines
             </p>
-            <p className="mt-2 text-sm text-ink-soft">
-              Keep the same QR on your tables. Use reset only when you want to retire the old card
-              and print a new one.
+            <p className="mt-2 text-xs text-ink-soft leading-relaxed">
+              Place the QR cards on tables, billing counters, or menus. Unhappy customers (ratings below threshold) will be seamlessly guided to write private feedback, while happy ones write public reviews.
             </p>
           </div>
         </div>
 
-        <div className="border border-line bg-paper p-6 text-center">
-          <div className="mx-auto max-w-xs border p-5 shadow-sm" style={{ backgroundColor: selectedTheme.bg, borderColor: selectedTheme.accent }}>
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: selectedTheme.accent }}>
-              Tell us how we did
-            </p>
-            <h2 className="mt-2 font-display text-2xl font-semibold leading-tight text-ink">
-              {restaurantName || "Your Restaurant"}
-            </h2>
-            <p className="mt-2 text-sm text-ink-soft">
+        <div className="border border-line bg-paper p-6 text-center flex flex-col justify-between">
+          <div className="mx-auto w-full max-w-xs border p-6 shadow-md transition-all duration-300" style={{ backgroundColor: selectedTheme.bg, borderColor: selectedTheme.accent }}>
+            {showReminder && (
+              <p className="font-mono text-[9px] uppercase tracking-[0.22em] font-semibold" style={{ color: selectedTheme.accent }}>
+                Tell us how we did
+              </p>
+            )}
+            {showName && (
+              <h2 className="mt-2 font-display text-2xl font-bold leading-tight text-ink">
+                {restaurantName || "Your Restaurant"}
+              </h2>
+            )}
+            <p className="mt-1 text-xs text-ink-soft">
               Scan, rate, and share your experience.
             </p>
-            <div className="mx-auto my-5 flex h-52 w-52 items-center justify-center border bg-white p-3" style={{ borderColor: selectedTheme.accent }}>
+            <div className="mx-auto my-5 flex h-52 w-52 items-center justify-center border bg-white p-3 shadow-inner" style={{ borderColor: selectedTheme.accent }}>
               {resolvedSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={resolvedSrc} alt="Restaurant QR code" className="h-full w-full object-contain" />
@@ -249,46 +299,52 @@ export default function QrPage() {
                 <NormalQrPreview />
               )}
             </div>
-            <div className="mx-auto flex max-w-[220px] items-center justify-center gap-1 text-amber-dark">
+            <div className="mx-auto flex max-w-[200px] items-center justify-center gap-1 text-amber-dark">
               {[1, 2, 3, 4, 5].map((star) => (
                 <svg key={star} viewBox="0 0 24 24" className="h-5 w-5 fill-amber stroke-amber-dark" strokeWidth={1.2}>
                   <path d="M12 2.5l2.9 6.32 6.85.72-5.12 4.7 1.42 6.86L12 17.9l-6.05 3.2 1.42-6.86-5.12-4.7 6.85-.72L12 2.5z" />
                 </svg>
               ))}
             </div>
-            <p className="mt-3 text-sm text-ink-soft">
-              It takes less than 10 seconds.
+            <p className="mt-3 text-xs text-ink-soft italic">
+              Takes less than 10 seconds.
             </p>
-            <p className="mt-3 break-all font-mono text-[10px] text-ink-faint">
-              {reviewUrl || "QR link appears after generation"}
-            </p>
+            {showUrl && (
+              <p className="mt-3 break-all font-mono text-[9px] text-ink-faint font-semibold tracking-tight">
+                {reviewUrl || "Link will generate below"}
+              </p>
+            )}
           </div>
 
-          <div className="mt-6 grid gap-3">
+          <div className="mt-6 space-y-2">
             <button
               onClick={handleGenerate}
-              disabled={loading}
-              className="w-full bg-paprika px-5 py-3 text-sm font-medium text-paper transition-colors hover:bg-paprika-dark disabled:opacity-60"
+              disabled={loading || !restaurantId}
+              className="w-full bg-paprika px-5 py-3 text-sm font-semibold text-paper tracking-wider uppercase hover:bg-paprika-dark disabled:opacity-60 transition-all"
             >
-              {loading ? "Preparing..." : shortCode ? "Keep this QR active" : "Create review QR"}
+              {loading ? "Generating QR..." : shortCode ? "Keep current QR active" : "Create review QR"}
             </button>
             {resolvedSrc && (
               <a
                 href={resolvedSrc}
-                download
-                className="block w-full bg-ink px-5 py-3 text-center text-sm font-medium text-paper transition-colors hover:bg-ink-soft"
+                download={`${restaurantName.replace(/\s+/g, "_")}_QR.png`}
+                target="_blank"
+                rel="noreferrer"
+                className="block w-full bg-ink px-5 py-3 text-center text-sm font-semibold tracking-wider text-paper hover:bg-ink-soft uppercase transition-all"
               >
-                Download QR image
+                Download QR Image
               </a>
             )}
             {shortCode && (
               <button
-                className="w-full border border-line px-5 py-2.5 text-sm text-ink-soft hover:border-ink"
+                onClick={handleGenerate}
+                disabled={loading}
+                className="w-full border border-line px-5 py-2.5 text-sm font-semibold text-ink-soft hover:border-ink hover:text-ink hover:bg-paper-dim uppercase transition-all"
               >
-                Reset and create a new QR
+                Reset and create new QR
               </button>
             )}
-          {error && <p className="mt-4 text-sm text-plum-dark">{error}</p>}
+            {error && <p className="mt-4 text-xs text-plum-dark font-medium">{error}</p>}
           </div>
         </div>
       </div>
