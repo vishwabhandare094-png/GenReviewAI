@@ -3,7 +3,17 @@ import uuid
 import qrcode
 import io
 
-from app.database.supabase import supabase
+from app.database.supabase import supabase, resolve_restaurant_id
+
+
+def _looks_like_uuid(value: str) -> bool:
+    if not value:
+        return False
+    try:
+        uuid.UUID(str(value))
+        return True
+    except (ValueError, TypeError):
+        return False
 
 def _frontend_url():
     configured = os.environ.get("FRONTEND_URL", "").strip()
@@ -30,12 +40,25 @@ def get_qr_image_stream(short_code: str):
 
 
 def generate_qr(restaurant_id: str, force_reset: bool = False):
+    resolved_id = resolve_restaurant_id(restaurant_id)
+
+    if resolved_id and not _looks_like_uuid(resolved_id):
+        return {
+            "success": False,
+            "message": "Invalid restaurant identifier",
+            "short_code": None,
+            "review_url": None,
+            "qr_path": None,
+            "stable": False,
+            "reset": False,
+        }
+
     # Printed QR codes must stay stable. Reuse the same short_code unless
     # the owner explicitly requests a reset.
     res = (
         supabase.table("restaurants")
         .select("short_code, qr_code_url, restaurant_name")
-        .eq("id", restaurant_id)
+        .eq("id", resolved_id)
         .execute()
     )
     
@@ -55,7 +78,7 @@ def generate_qr(restaurant_id: str, force_reset: bool = False):
                     {
                         "qr_code_url": dynamic_url
                     }
-                ).eq("id", restaurant_id).execute()
+                ).eq("id", resolved_id).execute()
                 qr_code_url = dynamic_url
                 
             return {
@@ -79,7 +102,7 @@ def generate_qr(restaurant_id: str, force_reset: bool = False):
             "short_code": short_code,
             "qr_code_url": dynamic_url
         }
-    ).eq("id", restaurant_id).execute()
+    ).eq("id", resolved_id).execute()
 
     return {
         "success": True,

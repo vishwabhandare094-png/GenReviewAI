@@ -94,9 +94,11 @@ export default function QrPage() {
           if (list.length > 0) {
             const target = list.find(r => r.id === activeId) || list[0];
             selectRestaurant(target);
-            // If restaurant has no short_code yet, silently generate one
+            // If restaurant has no short_code yet, generate one for the selected restaurant
             if (!target.short_code) {
-              setTimeout(() => handleGenerate(false), 100);
+              setTimeout(() => {
+                void handleGenerate(false, target.id);
+              }, 100);
             }
           }
         })
@@ -141,27 +143,34 @@ export default function QrPage() {
     }
   }
 
-  async function handleGenerate(force: boolean = false) {
-    if (!restaurantId) return;
+  async function handleGenerate(force: boolean = false, restaurantIdToUse: string | null = restaurantId) {
+    const targetRestaurantId = restaurantIdToUse || restaurantId;
+    if (!targetRestaurantId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await api.generateQr(restaurantId, force);
+      const res = await api.generateQr(targetRestaurantId, force);
       const data = res as Record<string, unknown>;
-      
+
+      if (data.success === false) {
+        const message = (data.message as string) || "Unable to generate QR code.";
+        setError(message);
+        return;
+      }
+
       const sc = (data.short_code as string) || null;
       const path = (data.qr_path as string) || null;
-      
+
       setShortCode(sc);
-      setQrCodePath(path);
+      setQrCodePath(path || (sc ? `qr/image/${sc}.png` : null));
 
       if (sc) {
         setReviewUrl(`${window.location.origin}/r/${sc}`);
         localStorage.setItem("gr_restaurant_short_code", sc);
       }
-      
+
       // Update restaurant list in state
-      setRestaurants(prev => prev.map(r => r.id === restaurantId ? { ...r, short_code: sc || undefined, qr_code_url: path || undefined } : r));
+      setRestaurants(prev => prev.map(r => r.id === targetRestaurantId ? { ...r, short_code: sc || undefined, qr_code_url: path || undefined } : r));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     } finally {
