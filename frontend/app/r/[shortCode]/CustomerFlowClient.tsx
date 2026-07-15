@@ -172,7 +172,11 @@ export default function CustomerFlowClient() {
     api
       .getTags(restaurantId)
       .then((res) => {
-        const list = Array.isArray(res) ? res : (res as { tags: string[] }).tags;
+        const list = Array.isArray(res)
+          ? res
+          : res && typeof res === "object" && "tags" in res
+          ? (res as { tags: string[] }).tags
+          : [];
         if (list && list.length > 0) setAvailableTags(list);
       })
       .catch(() => {

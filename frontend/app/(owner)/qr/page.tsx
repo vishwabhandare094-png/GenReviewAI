@@ -89,7 +89,7 @@ export default function QrPage() {
     if (ownerId) {
       api.listRestaurants(ownerId)
         .then((res) => {
-          const list = (res.restaurants || []) as RestaurantRecord[];
+          const list = (res && res.restaurants || []) as RestaurantRecord[];
           setRestaurants(list);
           if (list.length > 0) {
             const target = list.find(r => r.id === activeId) || list[0];

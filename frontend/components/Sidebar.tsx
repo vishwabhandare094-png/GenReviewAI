@@ -30,7 +30,7 @@ export default function Sidebar() {
     if (ownerId) {
       api.listRestaurants(ownerId)
         .then((res) => {
-          const list = (res.restaurants || []) as any[];
+          const list = (res && res.restaurants || []) as any[];
           setRestaurants(list);
           // If no active ID is set in localStorage, default to the first restaurant in list
           if (!activeId && list.length > 0) {

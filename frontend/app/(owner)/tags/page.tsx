@@ -51,7 +51,11 @@ export default function TagsPage() {
     api
       .getTags(restaurantId)
       .then((res) => {
-        const list = Array.isArray(res) ? res : (res as { tags: string[] }).tags || [];
+        const list = Array.isArray(res)
+          ? res
+          : res && typeof res === "object" && "tags" in res
+          ? (res as { tags: string[] }).tags || []
+          : [];
         setTags(list);
       })
       .catch((err: ApiError) => setError(err.message))
