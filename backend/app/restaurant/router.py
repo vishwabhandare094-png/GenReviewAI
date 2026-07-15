@@ -3,7 +3,8 @@ from fastapi import APIRouter
 from app.schemas.restaurant import RestaurantCreate
 from app.restaurant.service import (
     create_restaurant,
-    get_google_review_url
+    get_google_review_url,
+    get_restaurant_by_short_code
 )
 
 
@@ -22,6 +23,11 @@ def create(request: RestaurantCreate):
 def get_all_short_codes():
     from app.restaurant.service import get_short_codes
     return get_short_codes()
+
+
+@router.get("/short-code/{short_code}")
+def restaurant_by_short_code(short_code: str):
+    return get_restaurant_by_short_code(short_code)
 
 
 @router.get("/{restaurant_id}/google-review-url")

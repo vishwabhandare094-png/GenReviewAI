@@ -7,6 +7,15 @@ import TicketCard from "@/components/TicketCard";
 
 type Step = "rating" | "tags" | "drafts" | "posted" | "feedback" | "feedback-done";
 
+type RestaurantDetails = {
+  id: string;
+  restaurant_name?: string;
+  brand_name?: string;
+  short_code: string;
+  google_review_link?: string;
+  rating_threshold?: number;
+};
+
 const DEFAULT_THRESHOLD = 4.0;
 
 const FALLBACK_TAGS = [
@@ -35,22 +44,24 @@ function ProgressDots({ step }: { step: Step }) {
   );
 }
 
-// Read restaurantId from the URL path for static export compatibility
-// (useParams returns the build-time placeholder in static export mode)
-function useRestaurantId() {
-  const [id, setId] = useState("");
+function useShortCode() {
+  const [shortCode, setShortCode] = useState("");
   useEffect(() => {
     const parts = window.location.pathname.split("/").filter(Boolean);
     const rIndex = parts.indexOf("r");
     if (rIndex !== -1 && parts[rIndex + 1]) {
-      setId(parts[rIndex + 1]);
+      setShortCode(parts[rIndex + 1].toUpperCase());
     }
   }, []);
-  return id;
+  return shortCode;
 }
 
 export default function CustomerFlowClient() {
-  const restaurantId = useRestaurantId();
+  const shortCode = useShortCode();
+
+  const [restaurant, setRestaurant] = useState<RestaurantDetails | null>(null);
+  const [restaurantLoading, setRestaurantLoading] = useState(true);
+  const [restaurantError, setRestaurantError] = useState<string | null>(null);
 
   const [step, setStep] = useState<Step>("rating");
   const [rating, setRating] = useState(0);
@@ -75,10 +86,33 @@ export default function CustomerFlowClient() {
   const [error, setError] = useState<string | null>(null);
   const [googleUrl, setGoogleUrl] = useState<string | null>(null);
 
+  const restaurantId = restaurant?.id || shortCode;
+  const restaurantName =
+    restaurant?.restaurant_name || restaurant?.brand_name || "this restaurant";
+  const ratingThreshold = restaurant?.rating_threshold || DEFAULT_THRESHOLD;
   const orderRef = useMemo(
-    () => (restaurantId || "").slice(0, 8).toUpperCase() || "——————",
-    [restaurantId]
+    () => (shortCode || "").slice(0, 8).toUpperCase() || "------",
+    [shortCode]
   );
+
+  useEffect(() => {
+    if (!shortCode) return;
+    setRestaurantLoading(true);
+    setRestaurantError(null);
+
+    api
+      .getRestaurantByShortCode(shortCode)
+      .then((res) => {
+        if (!res.restaurant) {
+          throw new Error(res.message || "Restaurant not found");
+        }
+        setRestaurant(res.restaurant);
+      })
+      .catch((err) => {
+        setRestaurantError(err instanceof ApiError ? err.message : String(err));
+      })
+      .finally(() => setRestaurantLoading(false));
+  }, [shortCode]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -89,14 +123,14 @@ export default function CustomerFlowClient() {
         if (list && list.length > 0) setAvailableTags(list);
       })
       .catch(() => {
-        /* fall back to defaults silently — this is a low-stakes screen */
+        /* fall back to defaults silently */
       });
   }, [restaurantId]);
 
   async function handleRating(value: number) {
     setRating(value);
     setError(null);
-    if (value >= DEFAULT_THRESHOLD) {
+    if (value >= ratingThreshold) {
       setStep("tags");
     } else {
       setStep("feedback");
@@ -129,7 +163,7 @@ export default function CustomerFlowClient() {
         list && list.length > 0
           ? list
           : [
-              `Really enjoyed my visit — ${selectedTags.join(", ").toLowerCase() || "great experience overall"}. Would come back again.`,
+              `Really enjoyed my visit to ${restaurantName} - ${selectedTags.join(", ").toLowerCase() || "great experience overall"}. Would come back again.`,
             ];
       setDrafts(finalDrafts);
       setEditedDraft(finalDrafts[0]);
@@ -155,7 +189,7 @@ export default function CustomerFlowClient() {
       try {
         await navigator.clipboard.writeText(editedDraft);
       } catch {
-        /* clipboard may be unavailable — not fatal */
+        /* clipboard may be unavailable */
       }
 
       try {
@@ -163,11 +197,12 @@ export default function CustomerFlowClient() {
         const url =
           (res as { google_review_link?: string; url?: string }).google_review_link ||
           (res as { google_review_link?: string; url?: string }).url ||
+          restaurant?.google_review_link ||
           null;
         setGoogleUrl(url);
         if (url) window.open(url, "_blank", "noopener,noreferrer");
       } catch {
-        /* still show the thank-you screen even if the redirect lookup fails */
+        /* still show the thank-you screen even if redirect lookup fails */
       }
 
       setStep("posted");
@@ -201,11 +236,50 @@ export default function CustomerFlowClient() {
       const res = await api.getGoogleReviewUrl(restaurantId);
       const url =
         (res as { google_review_link?: string; url?: string }).google_review_link ||
-        (res as { google_review_link?: string; url?: string }).url;
+        (res as { google_review_link?: string; url?: string }).url ||
+        restaurant?.google_review_link;
       if (url) window.open(url, "_blank", "noopener,noreferrer");
     } catch {
-      /* no-op */
+      if (restaurant?.google_review_link) {
+        window.open(restaurant.google_review_link, "_blank", "noopener,noreferrer");
+      }
     }
+  }
+
+  if (restaurantLoading) {
+    return (
+      <div className="grain flex min-h-screen items-center justify-center bg-paper-dim px-4 py-10">
+        <TicketCard className="w-full max-w-sm animate-print-in text-center">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-paprika">
+            Loading restaurant
+          </p>
+          <h1 className="mt-2 font-display text-2xl font-semibold text-ink">
+            One moment...
+          </h1>
+        </TicketCard>
+      </div>
+    );
+  }
+
+  if (restaurantError || !restaurant) {
+    return (
+      <div className="grain flex min-h-screen items-center justify-center bg-paper-dim px-4 py-10">
+        <TicketCard className="w-full max-w-sm animate-print-in text-center">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-plum">
+            QR code not found
+          </p>
+          <h1 className="mt-2 font-display text-2xl font-semibold text-ink">
+            This review link is unavailable
+          </h1>
+          <p className="mt-2 text-sm text-ink-soft">
+            Please ask the restaurant for a fresh QR code.
+          </p>
+          {restaurantError && (
+            <p className="mt-4 text-xs text-ink-faint">{restaurantError}</p>
+          )}
+        </TicketCard>
+      </div>
+    );
   }
 
   return (
@@ -221,17 +295,16 @@ export default function CustomerFlowClient() {
             <ProgressDots step={step} />
           </div>
 
-          {/* STEP: rating */}
           {step === "rating" && (
             <div className="animate-fade-up text-center">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-paprika">
                 Thanks for visiting
               </p>
               <h1 className="mt-1 font-display text-2xl font-semibold text-ink">
-                How was it?
+                {restaurantName}
               </h1>
               <p className="mt-1 text-sm text-ink-soft">
-                One tap — no forms, no login.
+                How was your visit today?
               </p>
               <div className="mt-8">
                 <StarRating value={rating} onChange={handleRating} />
@@ -239,17 +312,16 @@ export default function CustomerFlowClient() {
             </div>
           )}
 
-          {/* STEP: tags */}
           {step === "tags" && (
             <div className="animate-fade-up">
               <p className="text-center font-mono text-[11px] uppercase tracking-[0.2em] text-paprika">
-                {"★".repeat(rating)} rating logged
+                {"*".repeat(rating)} rating logged
               </p>
               <h2 className="mt-1 text-center font-display text-xl font-semibold text-ink">
                 What stood out?
               </h2>
               <p className="mt-1 text-center text-sm text-ink-soft">
-                Pick up to two — it helps the draft sound right.
+                Pick up to two - it helps the draft sound right.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
                 {availableTags.map((tag) => {
@@ -274,19 +346,18 @@ export default function CustomerFlowClient() {
                 disabled={loading}
                 className="mt-8 w-full bg-paprika px-5 py-3 text-sm font-medium text-paper transition-colors hover:bg-paprika-dark disabled:opacity-60"
               >
-                {loading ? "Writing your draft…" : "Get review draft"}
+                {loading ? "Writing your draft..." : "Get review draft"}
               </button>
             </div>
           )}
 
-          {/* STEP: drafts */}
           {step === "drafts" && (
             <div className="animate-fade-up">
               <h2 className="text-center font-display text-xl font-semibold text-ink">
                 Pick a starting point
               </h2>
               <p className="mt-1 text-center text-sm text-ink-soft">
-                Edit it however you like — it should sound like you.
+                Edit it however you like - it should sound like you.
               </p>
 
               <div className="mt-5 space-y-2">
@@ -337,12 +408,11 @@ export default function CustomerFlowClient() {
                 disabled={loading || !editedDraft.trim()}
                 className="mt-6 w-full bg-paprika px-5 py-3 text-sm font-medium text-paper transition-colors hover:bg-paprika-dark disabled:opacity-60"
               >
-                {loading ? "Posting…" : "Copy & post on Google"}
+                {loading ? "Posting..." : "Copy & post on Google"}
               </button>
             </div>
           )}
 
-          {/* STEP: posted */}
           {step === "posted" && (
             <div className="animate-fade-up py-4 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-sage text-sage-dark">
@@ -355,8 +425,8 @@ export default function CustomerFlowClient() {
               </h2>
               <p className="mt-1 text-sm text-ink-soft">
                 {googleUrl
-                  ? "Paste it into the Google tab we opened, set your star rating, and submit — that's what makes it count."
-                  : "Paste it into your Google review and submit — that's what makes it count."}
+                  ? "Paste it into the Google tab we opened, set your star rating, and submit - that's what makes it count."
+                  : "Paste it into your Google review and submit - that's what makes it count."}
               </p>
               {googleUrl && (
                 <a
@@ -371,17 +441,16 @@ export default function CustomerFlowClient() {
             </div>
           )}
 
-          {/* STEP: feedback (below threshold) */}
           {step === "feedback" && (
             <div className="animate-fade-up">
               <p className="text-center font-mono text-[11px] uppercase tracking-[0.2em] text-plum">
-                {"★".repeat(rating)}{"☆".repeat(5 - rating)}
+                {`${rating}/5`}
               </p>
               <h2 className="mt-1 text-center font-display text-xl font-semibold text-ink">
-                We&apos;re sorry it wasn&apos;t perfect
+                We're sorry it wasn't perfect
               </h2>
               <p className="mt-1 text-center text-sm text-ink-soft">
-                Tell us what happened — the owner sees this right away.
+                Tell us what happened - the owner sees this right away.
               </p>
 
               <label className="mt-6 block text-sm">
@@ -393,7 +462,7 @@ export default function CustomerFlowClient() {
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
                   rows={4}
-                  placeholder="Tell us in your own words…"
+                  placeholder="Tell us in your own words..."
                   className="w-full resize-none border border-line bg-paper px-3.5 py-2.5 text-sm text-ink outline-none focus:border-paprika"
                 />
               </label>
@@ -415,7 +484,7 @@ export default function CustomerFlowClient() {
                 disabled={loading || !feedbackText.trim()}
                 className="mt-6 w-full bg-ink px-5 py-3 text-sm font-medium text-paper transition-colors hover:bg-ink-soft disabled:opacity-60"
               >
-                {loading ? "Sending…" : "Send private feedback"}
+                {loading ? "Sending..." : "Send private feedback"}
               </button>
 
               <button
@@ -427,7 +496,6 @@ export default function CustomerFlowClient() {
             </div>
           )}
 
-          {/* STEP: feedback-done */}
           {step === "feedback-done" && (
             <div className="animate-fade-up py-4 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-ink text-ink">
@@ -436,7 +504,7 @@ export default function CustomerFlowClient() {
                 </svg>
               </div>
               <h2 className="font-display text-xl font-semibold text-ink">
-                Got it — thank you
+                Got it - thank you
               </h2>
               <p className="mt-1 text-sm text-ink-soft">
                 The owner has been notified and will follow up if you left contact info.

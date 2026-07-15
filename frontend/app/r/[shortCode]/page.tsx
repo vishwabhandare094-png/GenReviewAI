@@ -2,19 +2,19 @@ import CustomerFlowClient from "./CustomerFlowClient";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://127.0.0.1:8000";
+  "https://genreviewai-backend.onrender.com";
 
 export async function generateStaticParams() {
-  const params = [{ restaurantId: "_" }];
+  const params = [{ shortCode: "_" }];
   try {
     const res = await fetch(`${BASE_URL}/restaurant/short-codes`, {
-      next: { revalidate: 0 }
+      next: { revalidate: 0 },
     });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
         for (const code of data) {
-          params.push({ restaurantId: code });
+          params.push({ shortCode: code });
         }
       }
     }

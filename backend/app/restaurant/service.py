@@ -78,3 +78,34 @@ def get_google_review_url(restaurant_id: str):
 def get_short_codes():
     res = supabase.table("restaurants").select("short_code").execute()
     return [item["short_code"] for item in res.data if item.get("short_code")]
+
+
+def get_restaurant_by_short_code(short_code: str):
+    result = (
+        supabase
+        .table("restaurants")
+        .select("id, restaurant_name, brand_name, short_code, google_review_url, rating_threshold, is_active")
+        .eq("short_code", short_code.upper())
+        .limit(1)
+        .execute()
+    )
+
+    restaurant = result.data[0] if result.data else None
+
+    if not restaurant or restaurant.get("is_active") is False:
+        return {
+            "success": False,
+            "message": "Restaurant not found"
+        }
+
+    return {
+        "success": True,
+        "restaurant": {
+            "id": restaurant.get("id"),
+            "restaurant_name": restaurant.get("restaurant_name"),
+            "brand_name": restaurant.get("brand_name"),
+            "short_code": restaurant.get("short_code"),
+            "google_review_link": restaurant.get("google_review_url"),
+            "rating_threshold": restaurant.get("rating_threshold") or 4.0,
+        }
+    }
