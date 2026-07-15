@@ -1,14 +1,20 @@
 import os
+from html import escape
+from pathlib import Path
+
+from dotenv import load_dotenv
 import resend
 from app.database.supabase import supabase
 
-resend.api_key = os.environ.get("RESEND_API_KEY", "")
+load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+load_dotenv()
+
+DEFAULT_FROM_EMAIL = "GenReviewAI <onboarding@resend.dev>"
 
 
-def get_owner_email_for_restaurant(restaurant_id: str) -> str | None:
+def get_owner_email_for_restaurant(restaurant_id: str) -> tuple[str | None, str | None]:
     """Look up the owner's email for a given restaurant directly via owner_id."""
     try:
-        # Get the owner_id from the restaurant
         res = supabase.table("restaurants").select("owner_id, restaurant_name").eq("id", restaurant_id).single().execute()
         if not res.data:
             return None, None
@@ -29,6 +35,14 @@ def get_owner_email_for_restaurant(restaurant_id: str) -> str | None:
         return None, None
 
 
+def _configure_resend() -> str | None:
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if not api_key:
+        return None
+    resend.api_key = api_key
+    return api_key
+
+
 def send_new_review_notification(
     restaurant_id: str,
     customer_name: str,
@@ -38,7 +52,7 @@ def send_new_review_notification(
     is_private: bool = False,
 ):
     """Send an email notification to the restaurant owner when a new review is received."""
-    if not resend.api_key:
+    if not _configure_resend():
         print("[Email] RESEND_API_KEY not set. Skipping email notification.")
         return {"success": False, "message": "RESEND_API_KEY not configured"}
 
@@ -48,21 +62,29 @@ def send_new_review_notification(
             print(f"[Email] No owner email found for restaurant {restaurant_id}. Skipping.")
             return {"success": False, "message": "No owner email found"}
 
-        stars = "⭐" * rating + "☆" * (5 - rating)
+        stars = "*" * rating + "-" * (5 - rating)
         review_type = "Private Feedback" if is_private else "Public Review"
-        sentiment_emoji = "😊" if sentiment == "positive" else "😔" if sentiment == "negative" else "😐"
+        sentiment_label = (sentiment or "neutral").lower()
+        sentiment_text = (
+            "Positive" if sentiment_label == "positive"
+            else "Negative" if sentiment_label == "negative"
+            else "Neutral"
+        )
+        safe_customer_name = escape(customer_name or "Anonymous")
+        safe_restaurant_name = escape(restaurant_name or "Your Restaurant")
+        safe_review_text = escape(review_text or "").replace("\n", "<br>")
 
         html_body = f"""
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
           <div style="background: #C0392B; padding: 24px; color: white;">
             <h1 style="margin: 0; font-size: 20px;">New {review_type} Received</h1>
-            <p style="margin: 4px 0 0; opacity: 0.85;">{restaurant_name}</p>
+            <p style="margin: 4px 0 0; opacity: 0.85;">{safe_restaurant_name}</p>
           </div>
           <div style="padding: 24px;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 <td style="padding: 8px 0; color: #666; font-size: 13px;">Customer</td>
-                <td style="padding: 8px 0; font-weight: 600;">{customer_name or 'Anonymous'}</td>
+                <td style="padding: 8px 0; font-weight: 600;">{safe_customer_name}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666; font-size: 13px;">Rating</td>
@@ -70,11 +92,11 @@ def send_new_review_notification(
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666; font-size: 13px;">Sentiment</td>
-                <td style="padding: 8px 0;">{sentiment_emoji} {sentiment.capitalize()}</td>
+                <td style="padding: 8px 0;">{sentiment_text}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666; font-size: 13px; vertical-align: top;">Review</td>
-                <td style="padding: 8px 0; line-height: 1.6;">{review_text}</td>
+                <td style="padding: 8px 0; line-height: 1.6;">{safe_review_text}</td>
               </tr>
             </table>
             <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #eee; text-align: center;">
@@ -88,9 +110,9 @@ def send_new_review_notification(
         """
 
         params = {
-            "from": "GenReviewAI <onboarding@resend.dev>",
+            "from": os.environ.get("RESEND_FROM_EMAIL", DEFAULT_FROM_EMAIL),
             "to": [owner_email],
-            "subject": f"New {review_type}: {stars} from {customer_name or 'Anonymous'} at {restaurant_name}",
+            "subject": f"New {review_type}: {rating}/5 from {customer_name or 'Anonymous'} at {restaurant_name}",
             "html": html_body,
         }
 

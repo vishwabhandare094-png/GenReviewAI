@@ -4,6 +4,8 @@ from google.genai import types
 
 
 def generate_embedding(text: str):
+    if not text.strip():
+        return []
 
     response = client.models.embed_content(
         model="models/gemini-embedding-001",
@@ -31,7 +33,14 @@ def add_knowledge(data):
             "message": "Knowledge content cannot be empty"
         }
 
-    embedding = generate_embedding(content)
+    try:
+        embedding = generate_embedding(content)
+    except Exception as e:
+        print(f"[RAG] Failed to generate embedding: {e}")
+        return {
+            "success": False,
+            "message": f"Embedding generation failed: {str(e)}"
+        }
 
     restaurant_id = resolve_restaurant_id(data.restaurant_id)
 
@@ -59,21 +68,28 @@ def retrieve_knowledge(restaurant_id, query: str):
     if not query:
         return []
 
-    query_embedding = generate_embedding(query)
+    try:
+        query_embedding = generate_embedding(query)
+    except Exception as e:
+        print(f"[RAG] Embedding lookup failed: {e}")
+        return []
 
     restaurant_id = resolve_restaurant_id(restaurant_id)
 
-    result = (
-        supabase
-        .rpc(
-            "match_restaurant_knowledge",
-            {
-                "query_embedding": query_embedding,
-                "filter_restaurant_id": restaurant_id,
-                "match_count": 3
-            }
+    try:
+        result = (
+            supabase
+            .rpc(
+                "match_restaurant_knowledge",
+                {
+                    "query_embedding": query_embedding,
+                    "filter_restaurant_id": restaurant_id,
+                    "match_count": 3
+                }
+            )
+            .execute()
         )
-        .execute()
-    )
-
-    return result.data
+        return result.data or []
+    except Exception as e:
+        print(f"[RAG] Knowledge retrieval failed: {e}")
+        return []

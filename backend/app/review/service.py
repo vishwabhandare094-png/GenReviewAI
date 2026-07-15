@@ -6,12 +6,13 @@ def _notify_owner(restaurant_id: str, customer_name: str, rating: int, text: str
     """Fire-and-forget email notification to restaurant owner only if rating is under threshold (4.0)."""
     if rating >= 4:
         print(f"[Review] Rating {rating} is at or above threshold. Skipping email notification to owner.")
-        return
+        return {"success": True, "skipped": True, "message": "Rating is above alert threshold"}
     try:
         from app.email.service import send_new_review_notification
-        send_new_review_notification(restaurant_id, customer_name, rating, text, sentiment, is_private)
+        return send_new_review_notification(restaurant_id, customer_name, rating, text, sentiment, is_private)
     except Exception as e:
         print(f"[Review] Email notification failed (non-fatal): {e}")
+        return {"success": False, "message": str(e)}
 
 
 def submit_review(data):
@@ -49,12 +50,13 @@ def submit_review(data):
     )
 
     # Send email notification to owner (non-blocking)
-    _notify_owner(restaurant_id, data.customer_name, data.rating, review_text, sentiment, is_private=False)
+    email_alert = _notify_owner(restaurant_id, data.customer_name, data.rating, review_text, sentiment, is_private=False)
 
     return {
         "success": True,
         "message": "Review Submitted Successfully",
         "prediction": prediction,
+        "email_alert": email_alert,
         "data": result.data
     }
 
@@ -93,11 +95,12 @@ def submit_private_feedback(data):
     )
 
     # Send email notification to owner (non-blocking)
-    _notify_owner(restaurant_id, data.customer_name, data.rating, feedback_text, sentiment, is_private=True)
+    email_alert = _notify_owner(restaurant_id, data.customer_name, data.rating, feedback_text, sentiment, is_private=True)
 
     return {
         "success": True,
         "message": "Private Feedback Submitted Successfully",
         "prediction": prediction,
+        "email_alert": email_alert,
         "data": result.data
-    }
+    }
