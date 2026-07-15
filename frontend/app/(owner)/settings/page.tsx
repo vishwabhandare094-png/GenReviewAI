@@ -141,6 +141,7 @@ export default function SettingsPage() {
     localStorage.setItem("gr_restaurant_name", restaurant.restaurant_name || "");
     localStorage.setItem("gr_restaurant_short_code", restaurant.short_code || "");
     localStorage.setItem("gr_active_theme", themeVal);
+    localStorage.setItem(`gr_theme_${restaurant.id}`, themeVal);
     localStorage.setItem("gr_active_threshold", String(thresholdVal));
   }
 
@@ -187,6 +188,7 @@ export default function SettingsPage() {
         localStorage.setItem("gr_restaurant_id", id);
         localStorage.setItem("gr_restaurant_name", form.restaurant_name || "");
         localStorage.setItem("gr_active_theme", activePalette);
+        localStorage.setItem(`gr_theme_${id}`, activePalette);
         localStorage.setItem("gr_active_threshold", String(threshold));
         setActiveRestaurantId(id);
 
@@ -486,6 +488,10 @@ export default function SettingsPage() {
                         type="button"
                         onClick={() => {
                           setActivePalette(palette.name);
+                          if (activeRestaurantId) {
+                            localStorage.setItem(`gr_theme_${activeRestaurantId}`, palette.name);
+                          }
+                          localStorage.setItem("gr_active_theme", palette.name);
                         }}
                         className={`border py-3 text-center text-xs font-semibold tracking-wide transition-all ${
                           activePalette === palette.name

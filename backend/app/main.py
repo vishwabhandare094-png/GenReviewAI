@@ -39,7 +39,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Allow all origins (wildcard) to prevent CORS blocks on Render.
 # Specific origins are also listed for security on production rotations.
 origins = [
-    "*",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
@@ -55,7 +54,7 @@ if extra_origins:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -74,19 +73,17 @@ def home():
 @app.get("/health")
 def health():
     """Check which environment variables are loaded on this server."""
-    supabase_url = os.environ.get("SUPABASE_URL", "")
-    anon_key = os.environ.get("SUPABASE_ANON_KEY", "")
-    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    resend_key = os.environ.get("RESEND_API_KEY", "")
+    def configured(name: str) -> str:
+        return "configured" if os.environ.get(name, "").strip() else "missing"
+
     return {
         "status": "ok",
         "env": {
-            "SUPABASE_URL": supabase_url[:30] + "..." if supabase_url else "❌ MISSING",
-            "SUPABASE_ANON_KEY": anon_key[:15] + "..." if anon_key else "❌ MISSING",
-            "SUPABASE_SERVICE_ROLE_KEY": service_key[:15] + "..." if service_key else "❌ MISSING",
-            "GEMINI_API_KEY": gemini_key[:10] + "..." if gemini_key else "❌ MISSING",
-            "RESEND_API_KEY": resend_key[:10] + "..." if resend_key else "❌ MISSING",
+            "SUPABASE_URL": configured("SUPABASE_URL"),
+            "SUPABASE_ANON_KEY": configured("SUPABASE_ANON_KEY"),
+            "SUPABASE_SERVICE_ROLE_KEY": configured("SUPABASE_SERVICE_ROLE_KEY"),
+            "GEMINI_API_KEY": configured("GEMINI_API_KEY"),
+            "RESEND_API_KEY": configured("RESEND_API_KEY"),
         }
     }
 

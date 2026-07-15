@@ -1,5 +1,22 @@
+import json
 import uuid
 from app.database.supabase import supabase, resolve_restaurant_id
+
+
+def _metadata_from_description(row):
+    if not row:
+        return {}
+    desc_str = row.get("description")
+    if not desc_str:
+        return {}
+    try:
+        return json.loads(desc_str)
+    except Exception:
+        return {}
+
+
+def _is_missing_column_error(exc):
+    return "column" in str(exc).lower() and "does not exist" in str(exc).lower()
 
 
 def create_restaurant(data):
@@ -10,35 +27,36 @@ def create_restaurant(data):
     restaurant_id = str(uuid.uuid4())
     short_code = str(uuid.uuid4())[:8].upper()
 
-    import json
     metadata = {
         "rating_threshold": getattr(data, "rating_threshold", 4.0),
         "theme_name": getattr(data, "theme_name", "Warm Ticket")
     }
 
-    result = (
-        supabase.table("restaurants")
-        .insert(
-            {
-                "id": restaurant_id,
-                "owner_id": owner_id,
-                "restaurant_name": getattr(data, "restaurant_name", "New Restaurant"),
-                "brand_name": getattr(data, "brand_name", None) or getattr(data, "restaurant_name", "New Restaurant"),
-                "cuisine": getattr(data, "category", "Restaurant"),
-                "phone": getattr(data, "phone", ""),
-                "email": getattr(data, "email", ""),
-                "address": getattr(data, "address", ""),
-                "city": getattr(data, "city", ""),
-                "state": getattr(data, "state", ""),
-                "country": getattr(data, "country", "India"),
-                "google_review_url": getattr(data, "google_review_link", ""),
-                "short_code": short_code,
-                "is_active": True,
-                "description": json.dumps(metadata)
-            }
-        )
-        .execute()
-    )
+    payload = {
+        "id": restaurant_id,
+        "owner_id": owner_id,
+        "restaurant_name": getattr(data, "restaurant_name", "New Restaurant"),
+        "brand_name": getattr(data, "brand_name", None) or getattr(data, "restaurant_name", "New Restaurant"),
+        "cuisine": getattr(data, "category", "Restaurant"),
+        "phone": getattr(data, "phone", ""),
+        "email": getattr(data, "email", ""),
+        "address": getattr(data, "address", ""),
+        "city": getattr(data, "city", ""),
+        "state": getattr(data, "state", ""),
+        "country": getattr(data, "country", "India"),
+        "google_review_url": getattr(data, "google_review_link", ""),
+        "short_code": short_code,
+        "is_active": True,
+        "description": json.dumps(metadata)
+    }
+
+    try:
+        result = supabase.table("restaurants").insert(payload).execute()
+    except Exception as e:
+        if not _is_missing_column_error(e):
+            raise
+        payload.pop("description", None)
+        result = supabase.table("restaurants").insert(payload).execute()
 
     return {
         "success": True,
@@ -49,23 +67,18 @@ def create_restaurant(data):
 
 
 def list_restaurants(owner_id: str):
-    result = (
-        supabase.table("restaurants")
-        .select("id, restaurant_name, brand_name, cuisine, phone, email, address, city, state, country, google_review_url, short_code, is_active, description")
-        .eq("owner_id", owner_id)
-        .execute()
-    )
-    
-    import json
+    select_cols = "id, restaurant_name, brand_name, cuisine, phone, email, address, city, state, country, google_review_url, short_code, is_active, description"
+    try:
+        result = supabase.table("restaurants").select(select_cols).eq("owner_id", owner_id).execute()
+    except Exception as e:
+        if not _is_missing_column_error(e):
+            raise
+        fallback_cols = select_cols.replace(", description", "")
+        result = supabase.table("restaurants").select(fallback_cols).eq("owner_id", owner_id).execute()
+
     restaurants = []
     for row in (result.data or []):
-        metadata = {}
-        desc_str = row.get("description")
-        if desc_str:
-            try:
-                metadata = json.loads(desc_str)
-            except Exception:
-                pass
+        metadata = _metadata_from_description(row)
         row["rating_threshold"] = metadata.get("rating_threshold", 4.0)
         row["theme_name"] = metadata.get("theme_name", "Warm Ticket")
         restaurants.append(row)
@@ -77,30 +90,32 @@ def list_restaurants(owner_id: str):
 
 
 def update_restaurant(restaurant_id: str, data):
-    import json
     metadata = {
         "rating_threshold": getattr(data, "rating_threshold", 4.0),
         "theme_name": getattr(data, "theme_name", "Warm Ticket")
     }
-    
-    result = (
-        supabase.table("restaurants")
-        .update({
-            "restaurant_name": data.restaurant_name,
-            "brand_name": data.brand_name or data.restaurant_name,
-            "cuisine": data.category,
-            "phone": data.phone,
-            "email": data.email,
-            "address": data.address,
-            "city": data.city,
-            "state": data.state,
-            "country": data.country,
-            "google_review_url": data.google_review_link,
-            "description": json.dumps(metadata)
-        })
-        .eq("id", restaurant_id)
-        .execute()
-    )
+
+    payload = {
+        "restaurant_name": data.restaurant_name,
+        "brand_name": data.brand_name or data.restaurant_name,
+        "cuisine": data.category,
+        "phone": data.phone,
+        "email": data.email,
+        "address": data.address,
+        "city": data.city,
+        "state": data.state,
+        "country": data.country,
+        "google_review_url": data.google_review_link,
+        "description": json.dumps(metadata)
+    }
+
+    try:
+        result = supabase.table("restaurants").update(payload).eq("id", restaurant_id).execute()
+    except Exception as e:
+        if not _is_missing_column_error(e):
+            raise
+        payload.pop("description", None)
+        result = supabase.table("restaurants").update(payload).eq("id", restaurant_id).execute()
     
     res_data = result.data[0] if result.data else None
     if res_data:
@@ -154,14 +169,27 @@ def get_short_codes():
 
 
 def get_restaurant_by_short_code(short_code: str):
-    result = (
-        supabase
-        .table("restaurants")
-        .select("id, restaurant_name, brand_name, short_code, google_review_url, is_active, description")
-        .eq("short_code", short_code.upper())
-        .limit(1)
-        .execute()
-    )
+    select_cols = "id, restaurant_name, brand_name, short_code, google_review_url, is_active, description"
+    try:
+        result = (
+            supabase
+            .table("restaurants")
+            .select(select_cols)
+            .eq("short_code", short_code.upper())
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        if not _is_missing_column_error(e):
+            raise
+        result = (
+            supabase
+            .table("restaurants")
+            .select(select_cols.replace(", description", ""))
+            .eq("short_code", short_code.upper())
+            .limit(1)
+            .execute()
+        )
 
     restaurant = result.data[0] if result.data else None
 
@@ -171,14 +199,7 @@ def get_restaurant_by_short_code(short_code: str):
             "message": "Restaurant not found"
         }
 
-    import json
-    metadata = {}
-    desc_str = restaurant.get("description")
-    if desc_str:
-        try:
-            metadata = json.loads(desc_str)
-        except Exception:
-            pass
+    metadata = _metadata_from_description(restaurant)
 
     return {
         "success": True,
@@ -188,6 +209,7 @@ def get_restaurant_by_short_code(short_code: str):
             "brand_name": restaurant.get("brand_name"),
             "short_code": restaurant.get("short_code"),
             "google_review_link": restaurant.get("google_review_url"),
+            "google_review_url": restaurant.get("google_review_url"),
             "rating_threshold": metadata.get("rating_threshold", 4.0),
             "theme_name": metadata.get("theme_name", "Warm Ticket"),
         }

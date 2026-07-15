@@ -65,6 +65,7 @@ type RestaurantDetails = {
   brand_name?: string;
   short_code: string;
   google_review_url?: string;
+  google_review_link?: string;
   rating_threshold?: number;
   theme_name?: string;
 };
@@ -147,6 +148,9 @@ export default function CustomerFlowClient() {
     () => (shortCode || "").slice(0, 8).toUpperCase() || "------",
     [shortCode]
   );
+  const themeStyles = useMemo(() => {
+    return getThemeStyles(restaurant?.theme_name || "Warm Ticket");
+  }, [restaurant?.theme_name]);
 
   useEffect(() => {
     if (!shortCode) return;
@@ -255,6 +259,7 @@ export default function CustomerFlowClient() {
           (res as { google_review_link?: string; url?: string }).google_review_link ||
           (res as { google_review_link?: string; url?: string }).url ||
           restaurant?.google_review_url ||
+          restaurant?.google_review_link ||
           null;
         setGoogleUrl(url);
         if (url) window.open(url, "_blank", "noopener,noreferrer");
@@ -294,11 +299,13 @@ export default function CustomerFlowClient() {
       const url =
         (res as { google_review_link?: string; url?: string }).google_review_link ||
         (res as { google_review_link?: string; url?: string }).url ||
-        restaurant?.google_review_url;
+        restaurant?.google_review_url ||
+        restaurant?.google_review_link;
       if (url) window.open(url, "_blank", "noopener,noreferrer");
     } catch {
-      if (restaurant?.google_review_url) {
-        window.open(restaurant.google_review_url, "_blank", "noopener,noreferrer");
+      const fallbackUrl = restaurant?.google_review_url || restaurant?.google_review_link;
+      if (fallbackUrl) {
+        window.open(fallbackUrl, "_blank", "noopener,noreferrer");
       }
     }
   }
@@ -338,10 +345,6 @@ export default function CustomerFlowClient() {
       </div>
     );
   }
-
-  const themeStyles = useMemo(() => {
-    return getThemeStyles(restaurant?.theme_name || "Warm Ticket");
-  }, [restaurant?.theme_name]);
 
   return (
     <div 

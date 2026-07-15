@@ -1,6 +1,6 @@
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://127.0.0.1:8000";
+  "https://genreviewai-backend.onrender.com";
 
 class ApiError extends Error {
   status: number;
@@ -111,6 +111,7 @@ export const api = {
         restaurant_name?: string;
         brand_name?: string;
         short_code: string;
+        google_review_link?: string;
         google_review_url?: string;
         rating_threshold?: number;
         theme_name?: string;

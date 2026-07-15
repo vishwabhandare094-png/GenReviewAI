@@ -25,9 +25,38 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GenReviewAI — Turn every visit into a review",
+  metadataBase: new URL("https://genreviewai-frontend.onrender.com"),
+  title: {
+    default: "GenReviewAI | Restaurant Review Automation",
+    template: "%s | GenReviewAI",
+  },
   description:
-    "Scan, rate, and go public in ten seconds — or catch the unhappy ones before they do. GenReviewAI is the review-and-recovery ticket for restaurants.",
+    "GenReviewAI helps restaurants collect Google reviews, route low ratings to private feedback, and manage QR campaigns from one dashboard.",
+  keywords: [
+    "restaurant review software",
+    "Google review QR code",
+    "AI review generator",
+    "customer feedback",
+    "restaurant reputation management",
+  ],
+  applicationName: "GenReviewAI",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "GenReviewAI | Restaurant Review Automation",
+    description:
+      "Collect public reviews from happy guests and private feedback from unhappy ones with stable printable QR codes.",
+    url: "https://genreviewai-frontend.onrender.com",
+    siteName: "GenReviewAI",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GenReviewAI | Restaurant Review Automation",
+    description:
+      "Stable QR review links, AI review drafts, low-rating alerts, and owner analytics for restaurants.",
+  },
 };
 
 export default function RootLayout({

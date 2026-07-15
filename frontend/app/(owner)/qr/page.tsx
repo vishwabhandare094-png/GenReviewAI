@@ -118,7 +118,8 @@ export default function QrPage() {
       setReviewUrl(null);
     }
 
-    const matchedTheme = QR_THEMES.find(t => t.name === restaurant.theme_name) || QR_THEMES[0];
+    const savedTheme = localStorage.getItem(`gr_theme_${restaurant.id}`) || localStorage.getItem("gr_active_theme");
+    const matchedTheme = QR_THEMES.find(t => t.name === (restaurant.theme_name || savedTheme)) || QR_THEMES[0];
     setSelectedTheme(matchedTheme);
   }
 
@@ -207,7 +208,13 @@ export default function QrPage() {
                   value={selectedTheme.name}
                   onChange={(e) => {
                     const theme = QR_THEMES.find((item) => item.name === e.target.value);
-                    if (theme) setSelectedTheme(theme);
+                    if (theme) {
+                      setSelectedTheme(theme);
+                      if (restaurantId) {
+                        localStorage.setItem(`gr_theme_${restaurantId}`, theme.name);
+                      }
+                      localStorage.setItem("gr_active_theme", theme.name);
+                    }
                   }}
                   className="w-full border border-line bg-paper-dim px-3.5 py-2.5 text-ink outline-none focus:border-paprika text-sm font-medium"
                 >
